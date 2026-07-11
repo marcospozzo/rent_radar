@@ -47,10 +47,24 @@ def _median(values: list[float]) -> float:
     return values[n // 2] if n % 2 else (values[n // 2 - 1] + values[n // 2]) / 2
 
 
+def _percentile(values: list[float], q: float) -> float:
+    """Interpolación lineal, igual que percentile_cont() en Postgres."""
+    values = sorted(values)
+    k = (len(values) - 1) * q
+    f = math.floor(k)
+    c = math.ceil(k)
+    if f == c:
+        return values[int(k)]
+    return values[f] + (values[c] - values[f]) * (k - f)
+
+
 def zone_center_and_radius(cur: psycopg2.extensions.cursor) -> tuple[float, float, float]:
     """Mismo cálculo que zone_center/zone_radius en publicaciones.sql: mediana de
     lat/lon de las publicaciones ya aceptadas (robusta a outliers, sin punto fijo
-    hardcodeado), y radio = 4x la mediana de distancia a ese centro (piso 5km).
+    hardcodeado), y radio = cerca-lejos de Tukey (Q3 + 3·RIC) de la distancia a ese
+    centro (piso 5km). A diferencia de mediana*4, se adapta a zonas de búsqueda
+    legítimas más alejadas del centro sin descartarlas como si fueran errores de
+    geocodificación del portal.
     """
     cur.execute("select latitud, longitud from gold.candidatas where latitud is not null and longitud is not null")
     points = [(float(r["latitud"]), float(r["longitud"])) for r in cur.fetchall()]
@@ -62,7 +76,10 @@ def zone_center_and_radius(cur: psycopg2.extensions.cursor) -> tuple[float, floa
         dlon = (lon - center_lon) * KM_PER_DEGREE_LAT * math.cos(math.radians(center_lat))
         return math.hypot(dlat, dlon)
 
-    radius_km = max(_median([dist(lat, lon) for lat, lon in points]) * 4, 5)
+    dists = [dist(lat, lon) for lat, lon in points]
+    q1 = _percentile(dists, 0.25)
+    q3 = _percentile(dists, 0.75)
+    radius_km = max(q3 + 3 * (q3 - q1), 5)
     return center_lat, center_lon, radius_km
 
 

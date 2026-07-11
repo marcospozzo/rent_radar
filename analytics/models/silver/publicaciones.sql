@@ -89,9 +89,15 @@ candidatos as (
 
 duplicados as (
     -- Detecta pares que son la misma propiedad (mismo portal o portales distintos):
-    -- mismo bucket lat/lon (±0.001° ≈ 111m), mismos ambientes,
-    -- misma moneda y precio dentro del ±10%. Incluye duplicados dentro del mismo
-    -- portal (inmobiliarias que repostean el mismo aviso con otro id_publicacion).
+    -- a <= 120m de distancia real, mismos ambientes, misma moneda y precio
+    -- dentro del ±10%. Incluye duplicados dentro del mismo portal (inmobiliarias
+    -- que repostean el mismo aviso con otro id_publicacion).
+    -- Antes se comparaba round(lat,3)=round(lat,3) (bucket de ±0.001° ≈ 111m):
+    -- dos coordenadas a 80m reales una de otra pero a los dos lados del borde
+    -- de esa grilla (ej. longitud -58.5588 vs -58.5584, que redondean a
+    -- -58.559 y -58.558) no matcheaban y el duplicado se colaba. Con distancia
+    -- real (misma aproximación plana que usa distance_to_center_km más abajo)
+    -- ese caso de borde queda cubierto.
     -- De cada par se marca para eliminar el que tenga especificaciones más cortas;
     -- en empate, se descarta el de id mayor (más nuevo).
     select distinct
@@ -113,8 +119,17 @@ duplicados as (
         and a.ambientes is not null
         and a.precio    is not null
         and b.precio    is not null
-        and round(a.latitud::numeric,  3) = round(b.latitud::numeric,  3)
-        and round(a.longitud::numeric, 3) = round(b.longitud::numeric, 3)
+        and a.latitud   is not null
+        and a.longitud  is not null
+        and b.latitud   is not null
+        and b.longitud  is not null
+        and sqrt(
+                power((a.latitud - b.latitud) * {{ km_per_degree_lat() }}, 2)
+              + power(
+                    (a.longitud - b.longitud) * {{ km_per_degree_lat() }} * cos(radians(a.latitud)),
+                    2
+                )
+            ) <= 0.12
         and abs(a.precio::float - b.precio::float)
             / greatest(a.precio, b.precio)::float <= 0.10
 ),
@@ -178,11 +193,23 @@ distances as (
 ),
 
 zone_radius as (
-    -- Radio "normal" = 4x la mediana de distancia al centro (piso de 5km para no
-    -- sobre-ajustar si hay pocas publicaciones). Igual de robusto a outliers que
-    -- el centro: lo de afuera de este radio es casi siempre el portal de origen
-    -- geocodificando mal una dirección correcta (ver geocode_fallback.py).
-    select greatest(percentile_cont(0.5) within group (order by distance_to_center_km) * 4, 5) as radius_km
+    -- Radio = cerca-lejos de Tukey (Q3 + 3·RIC) sobre las distancias al centro: un
+    -- criterio estadístico estándar para separar errores genuinos de geocodificación
+    -- del portal de origen (casi siempre a cientos de km) de zonas de búsqueda
+    -- legítimas pero más alejadas del centro (ver URLs nuevas en run_ingest.py).
+    -- A diferencia de mediana*4, que solo capta el ancho del cluster dominante, este
+    -- se adapta a la dispersión real de los puntos válidos: agregar una zona nueva
+    -- (ej. Caballito) no la descarta por estar "lejos" del centro de la zona vieja.
+    -- Piso de 5km para no sobre-ajustar si hay pocas publicaciones.
+    select
+        greatest(
+            percentile_cont(0.75) within group (order by distance_to_center_km)
+            + 3 * (
+                percentile_cont(0.75) within group (order by distance_to_center_km)
+              - percentile_cont(0.25) within group (order by distance_to_center_km)
+            ),
+            5
+        ) as radius_km
     from distances
 ),
 

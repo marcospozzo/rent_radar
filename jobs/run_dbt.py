@@ -5,8 +5,11 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import requests
+
+ANALYTICS_DIR = Path(__file__).resolve().parent.parent / "analytics"
 
 
 def fetch_tipo_cambio() -> int:
@@ -34,7 +37,7 @@ def main() -> None:
         cmd += extra
 
     print(f"Ejecutando: {' '.join(cmd)}\n")
-    result = subprocess.run(cmd, cwd="analytics")
+    result = subprocess.run(cmd, cwd=ANALYTICS_DIR)
     sys.exit(result.returncode)
 
 

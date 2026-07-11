@@ -125,7 +125,16 @@ distances as (
 ),
 
 zone_radius as (
-    select greatest(percentile_cont(0.5) within group (order by distance_to_center_km) * 4, 5) as radius_km
+    -- Mismo cálculo que publicaciones.sql: cerca-lejos de Tukey (Q3 + 3·RIC), piso 5km.
+    select
+        greatest(
+            percentile_cont(0.75) within group (order by distance_to_center_km)
+            + 3 * (
+                percentile_cont(0.75) within group (order by distance_to_center_km)
+              - percentile_cont(0.25) within group (order by distance_to_center_km)
+            ),
+            5
+        ) as radius_km
     from distances
 ),
 

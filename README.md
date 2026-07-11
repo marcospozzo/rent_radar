@@ -47,11 +47,11 @@ flowchart TD
             ZP["ZonaProp · curl_cffi"]:::spider
             AP["ArgenProp · requests"]:::spider
         end
-        DBT["dbt run · run_dbt.py"]:::process
-        GEO["geocode_fallback.py"]:::process
-        DE["detect_events.py"]:::process
-        NO["notify.py"]:::process
-        GM["run_dashboard.py"]:::process
+        DBT["dbt run · jobs/run_dbt.py"]:::process
+        GEO["jobs/geocode_fallback.py"]:::process
+        DE["jobs/detect_events.py"]:::process
+        NO["jobs/notify.py"]:::process
+        GM["jobs/run_dashboard.py"]:::process
     end
 
     subgraph PrefectMeli ["⏱ Prefect: rent-radar-mercadolibre — cada 1h"]
@@ -59,7 +59,7 @@ flowchart TD
     end
 
     subgraph PrefectPrune ["⏱ Prefect: rent-radar-prune — diario"]
-        PRUNE["prune_snapshots.py"]:::process
+        PRUNE["jobs/prune_snapshots.py"]:::process
     end
 
     PRUNE -.->|borra > 7 dias| RAW
@@ -222,11 +222,11 @@ Solo la primera vez:
 
 ```bash
 PREFECT_API_URL=http://127.0.0.1:4200/api prefect work-pool create --type process local
-PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy pipeline.py:pipeline \
+PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy jobs/pipeline.py:pipeline \
   --name cada_10min --pool local --interval 600
-PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy pipeline.py:mercadolibre_pipeline \
+PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy jobs/pipeline.py:mercadolibre_pipeline \
   --name meli_cada_1h --pool local --interval 3600
-PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy pipeline.py:prune_pipeline \
+PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy jobs/pipeline.py:prune_pipeline \
   --name limpieza_diaria --pool local --cron "0 8 * * *"
 ```
 
@@ -237,25 +237,25 @@ PREFECT_API_URL=http://127.0.0.1:4200/api prefect deploy pipeline.py:prune_pipel
 ### Pipeline completo manual
 
 ```bash
-python run_ingest.py                       # scrape los tres portales en paralelo
-python prune_snapshots.py                  # borra snapshots de mas de 7 dias (normalmente corre 1x/dia aparte)
-python run_dbt.py                          # transforma con dbt (tipo de cambio auto)
-python geocode_fallback.py                 # reintenta ubicar publicaciones con coordenadas fuera de zona
-python detect_events.py                    # detecta cambios entre última y anteúltima corrida
-python notify.py                           # envía eventos pendientes por Telegram
-python run_dashboard.py                     # genera dashboard.html con métricas
+python jobs/run_ingest.py                       # scrape los tres portales en paralelo
+python jobs/prune_snapshots.py                  # borra snapshots de mas de 7 dias (normalmente corre 1x/dia aparte)
+python jobs/run_dbt.py                          # transforma con dbt (tipo de cambio auto)
+python jobs/geocode_fallback.py                 # reintenta ubicar publicaciones con coordenadas fuera de zona
+python jobs/detect_events.py                    # detecta cambios entre última y anteúltima corrida
+python jobs/notify.py                           # envía eventos pendientes por Telegram
+python jobs/run_dashboard.py                     # genera dashboard.html con métricas
 ```
 
 ### Un solo portal
 
 ```bash
-python run_ingest.py --source zonaprop
+python jobs/run_ingest.py --source zonaprop
 ```
 
 ### Mapa con servidor local
 
 ```bash
-python run_dashboard.py --serve --port 8080
+python jobs/run_dashboard.py --serve --port 8080
 # → http://localhost:8080/dashboard.html
 ```
 

@@ -12,11 +12,11 @@ La limpieza de raw.snapshots (prune_pipeline) corre aparte de los dos ingests:
 no depende de la salud de ninguno de los dos, y una vez por día alcanza de
 sobra (ver prune_snapshots.py).
 
-Deploy (una sola vez, con el servidor y el pool ya creados):
+Deploy (una sola vez, con el servidor y el pool ya creados; correr desde la raíz del repo):
     prefect work-pool create --type process local
-    prefect deploy pipeline.py:pipeline --name cada_10min --pool local --interval 600
-    prefect deploy pipeline.py:mercadolibre_pipeline --name meli_cada_1h --pool local --interval 3600
-    prefect deploy pipeline.py:prune_pipeline --name limpieza_diaria --pool local --cron "0 8 * * *"
+    prefect deploy jobs/pipeline.py:pipeline --name cada_10min --pool local --interval 600
+    prefect deploy jobs/pipeline.py:mercadolibre_pipeline --name meli_cada_1h --pool local --interval 3600
+    prefect deploy jobs/pipeline.py:prune_pipeline --name limpieza_diaria --pool local --cron "0 8 * * *"
 
 El worker levanta los runs; este archivo no necesita correr 24/7.
 """
@@ -28,17 +28,18 @@ from pathlib import Path
 
 from prefect import flow, task, get_run_logger
 
-ROOT = Path(__file__).parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
 
 
 def _run(script: str, *args: str) -> None:
     logger = get_run_logger()
     proc = subprocess.Popen(
-        [sys.executable, ROOT / script, *args],
+        [sys.executable, SCRIPT_DIR / script, *args],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        cwd=ROOT,
+        cwd=PROJECT_ROOT,
     )
     for line in proc.stdout:
         logger.info(line.rstrip())
