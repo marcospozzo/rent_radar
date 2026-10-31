@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 import psycopg2
 import psycopg2.extras
@@ -15,6 +16,12 @@ if not DATABASE_URL:
         from app.config import NEON_DATABASE_URL as DATABASE_URL
     except ImportError:
         sys.exit("No se encontró DATABASE_URL ni app.config.NEON_DATABASE_URL")
+
+# Directorio propio para el HTML generado. Con --serve se publica solo este
+# directorio: antes se servía el directorio actual, o sea la raíz del proyecto
+# (con .env incluido). En Docker es un volumen compartido entre el worker, que
+# regenera el HTML, y el servicio que lo sirve.
+OUTPUT_DIR = Path(os.environ.get("DASHBOARD_DIR", "dashboard"))
 
 
 def fetch_listings() -> list[dict]:
@@ -745,7 +752,8 @@ def main() -> None:
     ctx = build_ctx(rows, metricas)
     html = HTML_TEMPLATE.format(**ctx)
 
-    out = "dashboard.html"
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    out = OUTPUT_DIR / "dashboard.html"
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"  Generado: {out}")
@@ -757,6 +765,9 @@ def main() -> None:
         ESTADOS_VALIDOS = {"interesa", "descartada"}
 
         class Handler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, directory=str(OUTPUT_DIR), **kwargs)
+
             def log_message(self, *a):
                 pass
 

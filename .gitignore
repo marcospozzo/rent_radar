@@ -10,4 +10,5 @@ dist/
 logs/
 nohup.out
 dashboard.html
+dashboard/
 mockup.html
