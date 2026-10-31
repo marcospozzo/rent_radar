@@ -1,0 +1,31 @@
+# Secrets and local state never enter the build context.
+.env
+.env.*
+!.env.example
+.git
+.claude
+.agents
+venv
+.venv
+
+# Build/runtime leftovers.
+__pycache__
+*.pyc
+*.egg-info
+dashboard.html
+mockup.html
+logs
+nohup.out
+analytics/target
+analytics/logs
+analytics/dbt_packages
+
+# Not needed inside the image.
+docs
+systemd
+skills-lock.json
+CLAUDE.md
+README.md
+ARCHITECTURE.md
+Dockerfile
+docker-compose*.yml
