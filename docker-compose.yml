@@ -122,6 +122,8 @@ services:
   # One-off commands: `docker compose run --rm app python jobs/run_dbt.py`.
   app:
     <<: *app
+    # Never started by `up`; `docker compose run` still works with a profile.
+    profiles: ["tools"]
     depends_on:
       db:
         condition: service_healthy
