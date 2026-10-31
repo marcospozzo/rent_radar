@@ -28,9 +28,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     volumes:
       - db-data:/var/lib/postgresql/data
-      # Applied in filename order, only when the data volume is empty. A schema
-      # change later needs a new migration run by hand (or wiping the volume).
-      - ./sql:/docker-entrypoint-initdb.d:ro
     ports:
       # Loopback only. 5433 is taken by another project on this machine.
       - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
@@ -40,6 +37,15 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
+
+  # Applies the sql/ files this database has not seen yet, then exits.
+  migrate:
+    <<: *app
+    command: ["python", "jobs/migrate.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
 
   prefect-server:
     <<: *app
@@ -87,8 +93,8 @@ services:
   worker:
     <<: *app
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       prefect-deploy:
         condition: service_completed_successfully
     environment:
@@ -104,8 +110,8 @@ services:
     <<: *app
     command: ["python", "jobs/run_dashboard.py", "--serve", "--port", "8080"]
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - dashboard-data:/data/dashboard
     ports:
@@ -125,8 +131,8 @@ services:
     # Never started by `up`; `docker compose run` still works with a profile.
     profiles: ["tools"]
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: "no"
 
 volumes:

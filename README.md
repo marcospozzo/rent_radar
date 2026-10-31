@@ -19,7 +19,8 @@ docker compose up -d
 
 | Service | What it does | Address |
 |---------|--------------|---------|
-| `db` | PostgreSQL 17; applies `sql/` on first start | `127.0.0.1:5434` |
+| `db` | PostgreSQL 17 | `127.0.0.1:5434` |
+| `migrate` | Applies the `sql/` files the database has not seen yet, then exits | none |
 | `prefect-server` | Prefect API and UI | http://127.0.0.1:4200 |
 | `prefect-deploy` | Registers the work pool and deployments, then exits | none |
 | `worker` | Runs the flows | none |
@@ -48,8 +49,9 @@ docker compose run --rm app python main.py --ingest --source argenprop \
 - Search URLs and page limits: `SOURCES` in `jobs/run_ingest.py`.
 - Budget and filters: `analytics/dbt_project.yml` (`presupuesto_ars`) and
   `analytics/models/gold/candidatas.sql`.
-- The schema in `sql/` is applied only when the `db-data` volume is empty. A new
-  migration must be applied by hand (or the volume recreated).
+- Schema changes: add a numbered file to `sql/`. The `migrate` service applies
+  it on the next `docker compose up` (applied files are recorded in
+  `public.schema_migrations`).
 
 ## How it fits together
 
