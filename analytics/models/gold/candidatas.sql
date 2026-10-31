@@ -1,8 +1,27 @@
-select *
-from {{ ref('publicaciones') }}
-where superficie_cubierta >= 70
-  and ambientes > 2
+-- Publicaciones que cumplen los criterios de la búsqueda a la que pertenecen
+-- (silver.busquedas, cargada desde searches.yaml): una fila por búsqueda y
+-- publicación. El filtro de los portales no alcanza: ignoran algunos criterios
+-- y dejan pasar avisos en otra moneda.
+--
+-- Todo se compara en pesos. Las expensas vienen en pesos aunque el precio esté
+-- en dólares.
+select
+    p.*,
+    b.id_busqueda
+from {{ ref('publicaciones') }} p
+inner join {{ ref('publicaciones_busquedas') }} pb
+    on pb.fuente = p.fuente
+   and pb.id_publicacion = p.id_publicacion
+inner join silver.busquedas b
+    on b.id_busqueda = pb.id_busqueda
+where p.ambientes >= b.ambientes_min
+  and (b.ambientes_max is null or p.ambientes <= b.ambientes_max)
+  and coalesce(p.cocheras, 0) >= b.cocheras_min
+  and (b.superficie_min_m2 is null
+       or coalesce(p.superficie_cubierta, p.superficie_total) >= b.superficie_min_m2)
   and (
-      (moneda = 'USD' and (precio + coalesce(expensas, 0) / {{ var('tipo_cambio_usd') }}) <= {{ var('presupuesto_ars') }} / {{ var('tipo_cambio_usd') }})
-   or (moneda = 'ARS' and (precio + coalesce(expensas, 0)) <= {{ var('presupuesto_ars') }})
+      b.precio_max is null
+      or (case p.moneda when 'USD' then p.precio * {{ var('tipo_cambio_usd') }} else p.precio end
+          + coalesce(p.expensas, 0))
+         <= case b.moneda when 'USD' then b.precio_max * {{ var('tipo_cambio_usd') }} else b.precio_max end
   )

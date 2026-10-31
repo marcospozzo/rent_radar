@@ -3,20 +3,10 @@
 -- Espeja la lógica de publicaciones.sql pero retiene los registros inválidos.
 -- Útil para auditar calidad de datos y ajustar reglas.
 
-with latest_runs as (
-    select distinct on (fuente)
-        id_ejecucion,
-        fuente
-    from raw.pipeline_runs
-    where fuente != 'unknown'
-      and estado = 'ok'
-    order by fuente, finalizado_en desc
-),
-
-base as (
+with base as (
     select s.*
     from raw.snapshots s
-    inner join latest_runs lr on s.id_ejecucion = lr.id_ejecucion
+    inner join {{ ref('corridas_vigentes') }} cv on s.id_ejecucion = cv.id_ejecucion
 ),
 
 deduped as (

@@ -31,7 +31,6 @@ clean-targets:         # directories to be removed by `dbt clean`
 # files using the `{{ config(...) }}` macro.
 vars:
   tipo_cambio_usd: 1490
-  presupuesto_ars: 1550000
 
 models:
   analytics:

@@ -48,6 +48,11 @@ def _run(script: str, *args: str) -> None:
         raise RuntimeError(f"{script} falló con código {proc.returncode}")
 
 
+@task(name="sync-searches")
+def task_sync_searches() -> None:
+    _run("sync_searches.py")
+
+
 @task(name="ingest-zonaprop")
 def task_ingest_zonaprop() -> None:
     _run("run_ingest.py", "--source", "zonaprop")
@@ -120,6 +125,9 @@ def pipeline() -> None:
     de fallas) tiene que poder correr en el mismo ciclo sin importar qué haya
     fallado antes.
     """
+    # dbt filters each portal's listings by the criteria stored in the database,
+    # so an edit to searches.yaml must reach it before the transformation runs.
+    _try_step("sync_searches", task_sync_searches)
     futures = [
         task_ingest_zonaprop.submit(),
         task_ingest_argenprop.submit(),
