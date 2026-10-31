@@ -43,15 +43,17 @@ COPY --from=builder /opt/venv /opt/venv
 RUN playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
+# /data/prefect exists in the image so a named volume mounted there inherits the
+# app user's ownership (Docker copies it on first use).
 RUN useradd --create-home --uid 1000 app \
-    && mkdir /app \
-    && chown app:app /app
+    && mkdir /app /data /data/prefect \
+    && chown app:app /app /data/prefect
 
 USER app
 WORKDIR /app
 
 # dbt writes target/ and logs/ under analytics/, hence the app-owned tree.
-COPY --chown=app:app main.py ./
+COPY --chown=app:app main.py prefect.yaml ./
 COPY --chown=app:app jobs ./jobs
 COPY --chown=app:app analytics ./analytics
 COPY --chown=app:app sql ./sql

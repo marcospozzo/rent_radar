@@ -1,0 +1,30 @@
+name: rent-radar
+
+# Flows run as child processes of the worker, inside the same image.
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /app
+
+deployments:
+  - name: cada_10min
+    entrypoint: jobs/pipeline.py:pipeline
+    work_pool:
+      name: local
+    schedules:
+      - interval: 600
+
+  - name: meli_cada_1h
+    entrypoint: jobs/pipeline.py:mercadolibre_pipeline
+    work_pool:
+      name: local
+    schedules:
+      - interval: 3600
+
+  - name: limpieza_diaria
+    entrypoint: jobs/pipeline.py:prune_pipeline
+    work_pool:
+      name: local
+    schedules:
+      # Explicit zone: the container clock is UTC, the original server was not.
+      - cron: "0 8 * * *"
+        timezone: America/Argentina/Buenos_Aires

@@ -1,5 +1,23 @@
 name: rent-radar
 
+x-app: &app
+  build: .
+  image: rent-radar:dev
+  environment: &app-environment
+    # The variable keeps its upstream name, but it points at the local database.
+    NEON_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+    DBT_PROFILES_DIR: /app/analytics
+    DBT_HOST: db
+    DBT_PORT: "5432"
+    DBT_USER: ${POSTGRES_USER}
+    DBT_PASSWORD: ${POSTGRES_PASSWORD}
+    DBT_DBNAME: ${POSTGRES_DB}
+    DBT_SSLMODE: disable
+    TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+    TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+  # Chromium crashes with the default 64 MB /dev/shm.
+  shm_size: 1gb
+
 services:
   db:
     image: postgres:17-alpine
@@ -22,28 +40,70 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # One-off commands: `docker compose run --rm app python jobs/run_dbt.py`.
-  app:
-    build: .
-    image: rent-radar:dev
+  prefect-server:
+    <<: *app
+    command: ["prefect", "server", "start", "--host", "0.0.0.0"]
+    environment:
+      PREFECT_HOME: /data/prefect
+      # Same 60 s lock timeout the original systemd unit used for SQLite.
+      PREFECT_API_DATABASE_CONNECTION_URL: sqlite+aiosqlite:////data/prefect/prefect.db?timeout=60
+      # URL the browser uses to reach the API from the host.
+      PREFECT_UI_API_URL: http://localhost:${PREFECT_PORT:-4200}/api
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      # The server copies its UI build somewhere writable at startup; the default
+      # is inside the root-owned venv, so the non-root user cannot and the UI
+      # silently does not load.
+      PREFECT_UI_STATIC_DIRECTORY: /data/prefect/ui
+    volumes:
+      - prefect-data:/data/prefect
+    ports:
+      - "127.0.0.1:${PREFECT_PORT:-4200}:4200"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # Registers the work pool and the three deployments from prefect.yaml, then exits.
+  prefect-deploy:
+    <<: *app
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+    command:
+      - sh
+      - -c
+      - >
+        prefect work-pool inspect local >/dev/null 2>&1
+        || prefect work-pool create local --type process;
+        prefect --no-prompt deploy --all
+    restart: "no"
+
+  worker:
+    <<: *app
     depends_on:
       db:
         condition: service_healthy
+      prefect-deploy:
+        condition: service_completed_successfully
     environment:
-      # The variable keeps its upstream name, but it points at the local database.
-      NEON_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
-      DBT_PROFILES_DIR: /app/analytics
-      DBT_HOST: db
-      DBT_PORT: "5432"
-      DBT_USER: ${POSTGRES_USER}
-      DBT_PASSWORD: ${POSTGRES_PASSWORD}
-      DBT_DBNAME: ${POSTGRES_DB}
-      DBT_SSLMODE: disable
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-    # Chromium crashes with the default 64 MB /dev/shm.
-    shm_size: 1gb
+      <<: *app-environment
+      PREFECT_API_URL: http://prefect-server:4200/api
+    command: ["prefect", "worker", "start", "--pool", "local", "--type", "process"]
+    restart: unless-stopped
+
+  # One-off commands: `docker compose run --rm app python jobs/run_dbt.py`.
+  app:
+    <<: *app
+    depends_on:
+      db:
+        condition: service_healthy
     restart: "no"
 
 volumes:
   db-data:
+  prefect-data:
