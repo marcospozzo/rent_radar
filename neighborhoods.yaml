@@ -1,15 +1,18 @@
 # Each neighborhood as the portals name it in their URLs. Only entries checked
 # against the live portal belong here; a wrong slug makes a portal silently
 # search somewhere else.
-florida:
-  label: Florida (Vicente López)
+#
+# `name` is how the portals write it in a results page heading; the scraper
+# checks that heading to catch a URL the portal misread.
+florida:                         # Vicente López
+  name: Florida
   zonaprop: florida              # not florida-vicente-lopez: that is the whole partido
   argenprop: florida
-olivos:
-  label: Olivos (Vicente López)
+olivos:                          # Vicente López
+  name: Olivos
   zonaprop: olivos
   argenprop: olivos
-saavedra:
-  label: Saavedra (CABA)
+saavedra:                        # CABA
+  name: Saavedra
   zonaprop: saavedra
   argenprop: saavedra

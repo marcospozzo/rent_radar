@@ -55,9 +55,9 @@ class ScraperDB:
             cur.execute(
                 """
                 INSERT INTO raw.pipeline_runs
-                    (id_ejecucion, fuente, estado, iniciado_en, finalizado_en, total_publicaciones)
+                    (id_ejecucion, id_busqueda, fuente, estado, iniciado_en, finalizado_en, total_publicaciones)
                 VALUES
-                    (%(id_ejecucion)s, %(fuente)s, %(estado)s, %(iniciado_en)s,
+                    (%(id_ejecucion)s, %(id_busqueda)s, %(fuente)s, %(estado)s, %(iniciado_en)s,
                      %(finalizado_en)s, %(total_publicaciones)s)
                 ON CONFLICT (id_ejecucion) DO UPDATE
                     SET estado               = EXCLUDED.estado,

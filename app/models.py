@@ -73,10 +73,12 @@ class PipelineRun(BaseModel):
     finished_at: datetime | None = None
     listings_found: int = 0
     run_id: str = Field(default_factory=lambda: str(uuid4()))
+    search_id: str | None = None
 
     def to_run_row(self) -> dict[str, Any]:
         return {
             "id_ejecucion": self.run_id,
+            "id_busqueda": self.search_id,
             "fuente": self.source,
             "estado": self.status,
             "iniciado_en": self.started_at,

@@ -1,6 +1,11 @@
 """
-Corre los tres spiders en paralelo, simulando el step de ingest de Prefect.
-Editá SOURCES abajo para cambiar las URLs o el max de páginas.
+Corre los spiders para cada busqueda activa de searches.yaml.
+
+Una corrida es un portal scrapeado para una busqueda (main.py --ingest). Los
+portales corren en paralelo entre si, pero las busquedas de un mismo portal van
+una detras de otra: es lo que mantiene bajo el ritmo de pedidos a cada portal.
+Las URLs de cada portal son las escritas en la busqueda o las generadas a partir
+de ella.
 """
 from __future__ import annotations
 
@@ -8,55 +13,56 @@ import select
 import subprocess
 import sys
 import threading
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import get_args
 
-
-@dataclass
-class Source:
-    name: str
-    urls: list[str]
-    max_pages: int = 3
-
-
-SOURCES: list[Source] = [
-    Source(
-        name="zonaprop",
-        max_pages=20,
-        urls=[
-            "https://www.zonaprop.com.ar/casas-departamentos-ph-alquiler-mataderos-villa-luzuriaga-ramos-mejia-haedo-san-justo-la-matanza-ciudadela-tres-de-febrero-villa-sarmiento-moron-desde-3-hasta-5-ambientes-mas-de-1-garage-mas-70-m2-cubiertos-orden-publicado-descendente.html",
-            "https://www.zonaprop.com.ar/casas-departamentos-ph-alquiler-mataderos-villa-luro-caballito-naon-mataderos-desde-3-hasta-5-ambientes-mas-de-1-garage-mas-70-m2-cubiertos.html",
-        ],
-    ),
-    Source(
-        name="argenprop",
-        max_pages=20,
-        urls=[
-            "https://www.argenprop.com/casas-o-departamentos-o-ph/alquiler/haedo-o-ramos-mejia-o-san-justo-la-matanza-o-villa-luzuriaga-o-villa-sarmiento/3-ambientes-o-4-ambientes-o-5-o-mas-ambientes?1-o-mas-cocheras&orden-masnuevos-descendente",
-            "https://www.argenprop.com/casas-o-departamentos-o-ph/alquiler/caballito-o-mataderos-o-villa-luro/3-ambientes-o-4-ambientes-o-5-o-mas-ambientes?1-o-mas-cocheras&orden-masnuevos-descendente",
-        ],
-    ),
-    Source(
-        name="mercadolibre",
-        max_pages=4,
-        urls=[
-            "https://inmuebles.mercadolibre.com.ar/alquiler/mas-de-3-ambientes/bsas-gba-oeste/la-matanza/ramos-mejia-o-villa-luzuriaga-o-san-justo/_COVERED*AREA_70-*_NoIndex_True_Cocheras_1",
-            "https://inmuebles.mercadolibre.com.ar/alquiler/mas-de-3-ambientes/bsas-gba-oeste/moron/villa-sarmiento-o-haedo/_COVERED*AREA_70-*_NoIndex_True_Cocheras_1",
-            #"https://inmuebles.mercadolibre.com.ar/alquiler/mas-de-3-ambientes/capital-federal/caballito-o-villa-luro-o-mataderos/_COVERED*AREA_70-*_NoIndex_True_Cocheras_1",
-            
-        ],
-    ),
-]
-
+from app.searches import Portal, SearchConfigError, load_neighborhoods, load_searches
+from spiders.urls import build_portal_urls
 
 INACTIVITY_TIMEOUT = 120  # segundos sin output → proceso colgado
 
 
-def _run_source(source: Source) -> int:
-    cmd = [sys.executable, "main.py", "--ingest", "--source", source.name]
-    for url in source.urls:
+@dataclass
+class IngestJob:
+    portal: str
+    search_id: str
+    urls: list[str]
+    max_pages: int
+    # Barrios que la pagina de resultados debe nombrar. Vacio si las URLs se
+    # escribieron a mano: ahi no sabemos que barrios cubren.
+    expected_names: list[str]
+
+
+def build_jobs(only_portal: str | None) -> list[IngestJob]:
+    neighborhoods = load_neighborhoods()
+    jobs: list[IngestJob] = []
+    for search in load_searches():
+        if not search.active:
+            continue
+        for portal, portal_config in search.portals.items():
+            if only_portal and portal != only_portal:
+                continue
+            generated = not portal_config.urls
+            jobs.append(
+                IngestJob(
+                    portal=portal,
+                    search_id=search.id,
+                    urls=build_portal_urls(portal, search, neighborhoods),
+                    max_pages=portal_config.max_pages,
+                    expected_names=[neighborhoods[key].name for key in search.neighborhoods] if generated else [],
+                )
+            )
+    return jobs
+
+
+def _run_job(job: IngestJob) -> int:
+    label = f"{job.portal}/{job.search_id}"
+    cmd = [sys.executable, "main.py", "--ingest", "--source", job.portal, "--search-id", job.search_id]
+    for url in job.urls:
         cmd += ["--start-url", url]
-    cmd += ["--max-pages", str(source.max_pages)]
+    for name in job.expected_names:
+        cmd += ["--expect-name", name]
+    cmd += ["--max-pages", str(job.max_pages)]
 
     proc = subprocess.Popen(
         cmd,
@@ -71,10 +77,10 @@ def _run_source(source: Source) -> int:
             line = proc.stdout.readline()
             if not line:  # EOF — proceso terminó
                 break
-            print(f"[{source.name}] {line}", end="", flush=True)
+            print(f"[{label}] {line}", end="", flush=True)
         else:
             print(
-                f"\n[{source.name}] Sin actividad por {INACTIVITY_TIMEOUT}s — proceso colgado, matando",
+                f"\n[{label}] Sin actividad por {INACTIVITY_TIMEOUT}s — proceso colgado, matando",
                 flush=True,
             )
             proc.kill()
@@ -88,29 +94,37 @@ def _run_source(source: Source) -> int:
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", default=None, help="Correr solo esta fuente (zonaprop|argenprop|mercadolibre)")
+    parser.add_argument("--source", default=None, help="Correr solo este portal (zonaprop|argenprop|mercadolibre)")
     args = parser.parse_args()
 
-    sources = [s for s in SOURCES if s.name == args.source] if args.source else SOURCES
-
-    if not sources:
-        print(f"Fuente desconocida: {args.source}. Opciones: {[s.name for s in SOURCES]}")
+    portals = get_args(Portal)
+    if args.source and args.source not in portals:
+        print(f"Fuente desconocida: {args.source}. Opciones: {list(portals)}")
         sys.exit(1)
 
-    if len(sources) == 1:
-        code = _run_source(sources[0])
-        sys.exit(code)
+    try:
+        jobs = build_jobs(args.source)
+    except SearchConfigError as exc:
+        sys.exit(f"Configuracion de busquedas invalida: {exc}")
 
-    threads: list[threading.Thread] = []
+    if not jobs:
+        print("No hay busquedas activas para correr (ver searches.yaml).")
+        sys.exit(1)
+
+    jobs_by_portal: dict[str, list[IngestJob]] = {}
+    for job in jobs:
+        jobs_by_portal.setdefault(job.portal, []).append(job)
+
     results: dict[str, int] = {}
 
-    for source in sources:
-        def _target(s=source):
-            results[s.name] = _run_source(s)
+    def _run_portal(portal_jobs: list[IngestJob]) -> None:
+        for job in portal_jobs:
+            results[f"{job.portal}/{job.search_id}"] = _run_job(job)
 
-        t = threading.Thread(target=_target, name=source.name)
-        threads.append(t)
-
+    threads = [
+        threading.Thread(target=_run_portal, args=(portal_jobs,), name=portal)
+        for portal, portal_jobs in jobs_by_portal.items()
+    ]
     for t in threads:
         t.start()
     for t in threads:

@@ -16,15 +16,23 @@ logging.basicConfig(
 )
 
 
-def run_ingest(source: str, start_urls: list[str], max_pages: int) -> None:
+def run_ingest(
+	source: str,
+	start_urls: list[str],
+	max_pages: int,
+	search_id: str | None = None,
+	expected_names: list[str] | None = None,
+) -> None:
 	"""Ejecuta scraping de una fuente y persiste snapshots en Neon Postgres."""
 	
 	db = ScraperDB()
-	run = PipelineRun(source=source, status="running", listings_found=0)
+	run = PipelineRun(source=source, status="running", listings_found=0, search_id=search_id)
 
 	try:
 		db.insert_run(run.to_run_row())
-		listings = scrape_source(source=source, start_urls=start_urls, max_pages=max_pages)
+		listings = scrape_source(
+			source=source, start_urls=start_urls, max_pages=max_pages, expected_names=expected_names,
+		)
 		snapshot_rows = [item.to_snapshot_row(run.run_id) for item in listings]
 		db.insert_snapshots(snapshot_rows)
 
@@ -64,6 +72,16 @@ def parse_args() -> argparse.Namespace:
 		help="URL inicial del scrape (se puede repetir)",
 	)
 	parser.add_argument(
+		"--search-id",
+		help="Id de la busqueda (searches.yaml) a la que pertenece esta corrida",
+	)
+	parser.add_argument(
+		"--expect-name",
+		dest="expected_names",
+		action="append",
+		help="Barrio que debe nombrar la pagina de resultados (se puede repetir)",
+	)
+	parser.add_argument(
 		"--max-pages",
 		type=int,
 		default=1,
@@ -86,7 +104,8 @@ def main() -> None:
 			source=args.source,
 			start_urls=args.start_urls,
 			max_pages=args.max_pages,
-
+			search_id=args.search_id,
+			expected_names=args.expected_names,
 		)
 		return
 

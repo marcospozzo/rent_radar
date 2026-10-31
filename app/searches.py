@@ -66,7 +66,7 @@ class Search(_Strict):
 
 
 class Neighborhood(_Strict):
-    label: str
+    name: str
     zonaprop: str
     argenprop: str
 

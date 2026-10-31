@@ -4,6 +4,7 @@ import html
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable
@@ -13,6 +14,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.models import Listing
+from spiders.headings import WrongSearchPageError, missing_names
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +25,16 @@ class SpiderConfig:
 
     request_timeout: int = 20
     max_pages: int = 3
+    # Seconds before every request: the portals block clients that go too fast.
+    request_delay: float = 2.0
 
 
 class ArgenpropSpider:
     """Spider HTTP liviano para resultados de Argenprop."""
 
-    def __init__(self, config: SpiderConfig | None = None):
+    def __init__(self, config: SpiderConfig | None = None, expected_names: list[str] | None = None):
         self.config = config or SpiderConfig()
+        self.expected_names = expected_names or []
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -66,6 +71,9 @@ class ArgenpropSpider:
             if soup is None:
                 logger.warning("No se pudo obtener pagina %d", current_page)
                 return
+
+            if current_page == 1:
+                self._verify_heading(soup, start_url)
 
             cards = soup.select("div.listing__item")
             if not cards:
@@ -171,7 +179,25 @@ class ArgenpropSpider:
             specifications=specifications,
         )
 
+    def _verify_heading(self, soup: BeautifulSoup, url: str) -> None:
+        """Fail if the portal answered for a different search than the URL asks for.
+
+        A portal that misreads a URL does not fail: it returns another search
+        (ZonaProp drops the neighborhood and lists all of Argentina). A page with
+        no heading is a block or an error and is left to the usual handling.
+        """
+        heading = self._text(soup, "h1")
+        if not self.expected_names or heading is None:
+            return
+        missing = missing_names(heading, self.expected_names)
+        if missing:
+            raise WrongSearchPageError(
+                f"{url} answered with a page that does not mention {', '.join(missing)} "
+                f"(heading: {heading!r}); the portal probably ignored part of the URL"
+            )
+
     def _get_soup(self, url: str) -> BeautifulSoup | None:
+        time.sleep(self.config.request_delay)
         try:
             response = self.session.get(url, timeout=self.config.request_timeout)
             response.raise_for_status()
@@ -372,7 +398,9 @@ class ArgenpropSpider:
         return None
 
 
-def scrape_argenprop(start_urls: Iterable[str], max_pages: int = 3) -> list[Listing]:
+def scrape_argenprop(
+    start_urls: Iterable[str], max_pages: int = 3, expected_names: list[str] | None = None
+) -> list[Listing]:
     """Atajo funcional para obtener publicaciones de Argenprop."""
-    spider = ArgenpropSpider(config=SpiderConfig(max_pages=max_pages))
+    spider = ArgenpropSpider(config=SpiderConfig(max_pages=max_pages), expected_names=expected_names)
     return spider.scrape(start_urls)
