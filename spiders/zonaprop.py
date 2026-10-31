@@ -120,6 +120,12 @@ class ZonapropSpider:
             if href and page_token in href:
                 return urljoin(current_url, href)
 
+        # Current layout: the page links are anchors without href that the site's
+        # JavaScript follows, so without this only the first page was ever read.
+        # The page's URL is the first page's with -pagina-N before the extension.
+        if soup.select_one(f"[data-qa='PAGING_{expected_page}']"):
+            return re.sub(r"(-pagina-\d+)?\.html$", f"-pagina-{expected_page}.html", current_url)
+
         return None
 
     def _parse_listing(self, detail_url: str, seed: dict[str, float | str | None]) -> Listing | None:
