@@ -9,7 +9,7 @@ searches:
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }
-    price: { currency: ARS, max: 1550000 }   # carried over from the previous setup
+    price: { currency: ARS, max: 2000000 }
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
