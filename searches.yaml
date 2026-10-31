@@ -1,0 +1,20 @@
+# What to look for. Portals filter by URL, and dbt applies these criteria again
+# on top, because portals ignore or misread some filters.
+#
+# A portal with `urls` uses them as written instead of a generated URL. Use it
+# when a portal's URL rules are not supported or have changed.
+searches:
+  - id: alquiler-norte
+    operation: rent                  # rent | sale
+    neighborhoods: [florida, olivos, saavedra]
+    property_types: [casa, ph, departamento]
+    rooms: { min: 3 }
+    price: { currency: ARS, max: 1550000 }   # carried over from the previous setup
+    portals:
+      zonaprop: { max_pages: 20 }
+      argenprop: { max_pages: 20 }
+      mercadolibre:
+        max_pages: 4
+        # Houses in Florida only; other neighborhoods and types are not covered.
+        urls:
+          - https://inmuebles.mercadolibre.com.ar/casas/alquiler/bsas-gba-norte/vicente-lopez/florida/

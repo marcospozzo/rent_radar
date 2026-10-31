@@ -14,6 +14,7 @@ dependencies = [
     "playwright-stealth>=1.0.6",
     "psycopg2-binary>=2.9",
     "dbt-postgres>=1.8",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]

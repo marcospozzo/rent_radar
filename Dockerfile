@@ -53,7 +53,7 @@ USER app
 WORKDIR /app
 
 # dbt writes target/ and logs/ under analytics/, hence the app-owned tree.
-COPY --chown=app:app main.py prefect.yaml ./
+COPY --chown=app:app main.py prefect.yaml neighborhoods.yaml ./
 COPY --chown=app:app jobs ./jobs
 COPY --chown=app:app analytics ./analytics
 COPY --chown=app:app sql ./sql

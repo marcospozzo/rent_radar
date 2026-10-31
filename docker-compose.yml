@@ -103,6 +103,8 @@ services:
     command: ["prefect", "worker", "start", "--pool", "local", "--type", "process"]
     volumes:
       - dashboard-data:/data/dashboard
+      # Edited on the host and read each cycle, so a change needs no rebuild.
+      - ./searches.yaml:/app/searches.yaml:ro
     restart: unless-stopped
 
   # Serves only /data/dashboard, which the worker refreshes every cycle.
@@ -133,6 +135,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - ./searches.yaml:/app/searches.yaml:ro
     restart: "no"
 
 volumes:
