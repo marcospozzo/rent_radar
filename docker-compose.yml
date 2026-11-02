@@ -2,7 +2,8 @@ name: rent-radar
 
 x-app: &app
   build: .
-  image: rent-radar:dev
+  # On a server this is the image pulled from the registry (see the README).
+  image: ${RENT_RADAR_IMAGE:-rent-radar:dev}
   environment: &app-environment
     # The variable keeps its upstream name, but it points at the local database.
     NEON_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
@@ -52,7 +53,7 @@ services:
       # Wait up to 60 s for SQLite's write lock instead of failing on contention.
       PREFECT_API_DATABASE_CONNECTION_URL: sqlite+aiosqlite:////data/prefect/prefect.db?timeout=60
       # URL the browser uses to reach the API from the host.
-      PREFECT_UI_API_URL: http://localhost:${PREFECT_PORT:-4200}/api
+      PREFECT_UI_API_URL: http://${PUBLIC_HOST:-localhost}:${PREFECT_PORT:-4200}/api
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       # The server copies its UI build somewhere writable at startup; the default
       # is inside the root-owned venv, so the non-root user cannot and the UI
@@ -61,7 +62,8 @@ services:
     volumes:
       - prefect-data:/data/prefect
     ports:
-      - "127.0.0.1:${PREFECT_PORT:-4200}:4200"
+      # Loopback unless BIND_ADDRESS says otherwise (0.0.0.0 to reach it from the LAN).
+      - "${BIND_ADDRESS:-127.0.0.1}:${PREFECT_PORT:-4200}:4200"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
       interval: 10s

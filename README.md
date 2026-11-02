@@ -88,6 +88,51 @@ Everything is bound to loopback. Three flows run on their own schedule
   `public.schema_migrations`.
 - Dependencies are pinned with hashes in `requirements.lock`.
 
+## Deploy on a server
+
+The server only needs Docker Engine with Compose and a registry to pull the image
+from; the repository is not cloned there.
+
+Publish the image from the development machine, building for the server's
+architecture (`linux/amd64` for an Intel machine, even when you build on an ARM
+Mac; the emulated build takes a while):
+
+```bash
+docker login ghcr.io -u <github-user>      # password: a token with write:packages
+TAG=$(git rev-parse --short HEAD)
+docker buildx build --platform linux/amd64 \
+  -t ghcr.io/marcospozzo/rent-radar:$TAG -t ghcr.io/marcospozzo/rent-radar:latest \
+  --push .
+```
+
+On the server:
+
+```bash
+mkdir -p ~/rent-radar && cd ~/rent-radar
+# copy docker-compose.yml, alerts.yaml and .env.example here
+cp .env.example .env
+# in .env set POSTGRES_PASSWORD, RENT_RADAR_IMAGE (pin the tag), BIND_ADDRESS=0.0.0.0
+# and PUBLIC_HOST (the server's IP or name), and uncomment those lines
+# create the file named by APPRISE_URL_FILE with the Apprise URL, readable by the
+# container user (uid 1000):
+chmod 640 apprise-url.txt && sudo chown 1000:1000 apprise-url.txt
+docker login ghcr.io -u <github-user>      # password: a token with read:packages
+docker compose pull
+docker compose up -d
+```
+
+- **Update:** change the tag in `.env`, then `docker compose pull && docker compose up -d`.
+  `migrate` applies new migrations and `prefect-deploy` registers the flows again.
+  Editing `alerts.yaml` needs no restart.
+- **First cycles:** the alerts start in silence (each alert's existing listings
+  are recorded, not emailed). A portal with no successful run yet, such as
+  MercadoLibre before its first hourly run, or one that is blocked, sends one
+  health email and another when it recovers.
+- **Backups:** nothing here is hard to replace. If the database is lost, the next
+  start records what already exists without emailing it. `docker compose exec db
+  pg_dump -U <user> <db>` is enough if you still want a copy.
+- The Prefect UI is open to anyone on the LAN once `BIND_ADDRESS` is `0.0.0.0`.
+
 ## Known limitations
 
 - **ArgenProp** answers some clients with an AWS WAF challenge that the plain
