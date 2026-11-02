@@ -1,4 +1,4 @@
-"""Copies the searches in searches.yaml into silver.busquedas.
+"""Copies the searches in alerts.yaml into silver.busquedas.
 
 Run at the start of every cycle so an edit to the YAML takes effect on the next
 run. A search removed from the file is marked inactive rather than deleted: the

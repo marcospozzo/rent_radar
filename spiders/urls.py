@@ -84,5 +84,5 @@ def build_portal_urls(portal: Portal, search: Search, neighborhoods: dict[str, N
         return [build_argenprop_url(search, neighborhoods)]
     raise SearchConfigError(
         f"Search '{search.id}': {portal} has no URL builder yet; "
-        f"set portals.{portal}.urls in searches.yaml"
+        f"set portals.{portal}.urls in alerts.yaml"
     )

@@ -1,5 +1,5 @@
 -- Publicaciones que cumplen los criterios de la búsqueda a la que pertenecen
--- (silver.busquedas, cargada desde searches.yaml): una fila por búsqueda y
+-- (silver.busquedas, cargada desde alerts.yaml): una fila por búsqueda y
 -- publicación. El filtro de los portales no alcanza: ignoran algunos criterios
 -- y dejan pasar avisos en otra moneda.
 --

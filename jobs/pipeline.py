@@ -121,7 +121,7 @@ def pipeline() -> None:
     fallado antes.
     """
     # dbt filters each portal's listings by the criteria stored in the database,
-    # so an edit to searches.yaml must reach it before the transformation runs.
+    # so an edit to alerts.yaml must reach it before the transformation runs.
     _try_step("sync_searches", task_sync_searches)
     futures = [
         task_ingest_zonaprop.submit(),

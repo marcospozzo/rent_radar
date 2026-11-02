@@ -1,4 +1,4 @@
-"""Search definitions: what Marc is looking for, loaded from searches.yaml."""
+"""Alert definitions: what Marc is looking for, loaded from alerts.yaml."""
 from __future__ import annotations
 
 import os
@@ -10,7 +10,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 # Relative to the working directory, which is /app for every job in the image.
-SEARCHES_FILE = Path(os.environ.get("SEARCHES_FILE", "searches.yaml"))
+ALERTS_FILE = Path(os.environ.get("ALERTS_FILE", "alerts.yaml"))
 NEIGHBORHOODS_FILE = Path(os.environ.get("NEIGHBORHOODS_FILE", "neighborhoods.yaml"))
 
 Portal = Literal["zonaprop", "argenprop", "mercadolibre"]
@@ -47,12 +47,19 @@ class Price(_Strict):
     max: int | None = Field(default=None, gt=0)
 
 
+class BothPrices(_Strict):
+    rent: Price
+    sale: Price
+
+
 class PortalConfig(_Strict):
     max_pages: int = Field(default=20, ge=1)
     urls: list[str] = Field(default_factory=list)
 
 
 class Search(_Strict):
+    """One operation looked up on the portals: what the pipeline actually runs."""
+
     id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
     operation: Operation
     active: bool = True
@@ -65,14 +72,68 @@ class Search(_Strict):
     portals: dict[Portal, PortalConfig] = Field(min_length=1)
 
 
+class Alert(_Strict):
+    """What alerts.yaml asks for. An alert on `both` operations becomes two searches."""
+
+    id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
+    operation: Literal["rent", "sale", "both"]
+    active: bool = True
+    neighborhoods: list[str] = Field(min_length=1)
+    property_types: list[PropertyType] = Field(min_length=1)
+    rooms: Rooms
+    min_garage: int = Field(default=0, ge=0)
+    min_area_m2: int | None = Field(default=None, gt=0)
+    price: Price | BothPrices
+    portals: dict[Portal, PortalConfig] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _operation_matches_the_rest(self) -> Alert:
+        both = self.operation == "both"
+        if both and not isinstance(self.price, BothPrices):
+            raise ValueError("operation 'both' needs a price for each: price: { rent: {...}, sale: {...} }")
+        if not both and isinstance(self.price, BothPrices):
+            raise ValueError(f"operation '{self.operation}' takes one price, not a rent and sale pair")
+        if both and any(portal.urls for portal in self.portals.values()):
+            raise ValueError(
+                "operation 'both' cannot use portals.<portal>.urls, because a pasted URL is for "
+                "one operation; make one alert for rent and another for sale"
+            )
+        return self
+
+    def searches(self) -> list[Search]:
+        if isinstance(self.price, BothPrices):
+            return [
+                self._search(Operation.RENT, self.price.rent),
+                self._search(Operation.SALE, self.price.sale),
+            ]
+        return [self._search(Operation(self.operation), self.price)]
+
+    def _search(self, operation: Operation, price: Price) -> Search:
+        # Rent and sale prices are never mixed: each operation is its own search,
+        # with its own runs and its own criteria.
+        search_id = f"{self.id}-{operation.value}" if self.operation == "both" else self.id
+        return Search(
+            id=search_id,
+            operation=operation,
+            active=self.active,
+            neighborhoods=self.neighborhoods,
+            property_types=self.property_types,
+            rooms=self.rooms,
+            min_garage=self.min_garage,
+            min_area_m2=self.min_area_m2,
+            price=price,
+            portals=self.portals,
+        )
+
+
 class Neighborhood(_Strict):
     name: str
     zonaprop: str
     argenprop: str
 
 
-class _SearchesFile(_Strict):
-    searches: list[Search]
+class _AlertsFile(_Strict):
+    alerts: list[Alert]
 
 
 def _read_yaml(path: Path) -> object:
@@ -101,35 +162,28 @@ def load_neighborhoods(path: Path = NEIGHBORHOODS_FILE) -> dict[str, Neighborhoo
 
 
 def load_searches(
-    searches_path: Path = SEARCHES_FILE,
+    alerts_path: Path = ALERTS_FILE,
     neighborhoods_path: Path = NEIGHBORHOODS_FILE,
 ) -> list[Search]:
     try:
-        searches = _SearchesFile.model_validate(_read_yaml(searches_path)).searches
+        alerts = _AlertsFile.model_validate(_read_yaml(alerts_path)).alerts
     except ValidationError as exc:
-        raise SearchConfigError(f"{searches_path}: {_describe(exc)}") from exc
+        raise SearchConfigError(f"{alerts_path}: {_describe(exc)}") from exc
 
     known_neighborhoods = load_neighborhoods(neighborhoods_path)
     seen_ids: set[str] = set()
-    for search in searches:
-        if search.id in seen_ids:
-            raise SearchConfigError(f"{searches_path}: search id '{search.id}' appears more than once")
-        seen_ids.add(search.id)
-        for neighborhood in search.neighborhoods:
+    searches: list[Search] = []
+    for alert in alerts:
+        for neighborhood in alert.neighborhoods:
             if neighborhood not in known_neighborhoods:
                 raise SearchConfigError(
-                    f"{searches_path}: search '{search.id}' uses neighborhood '{neighborhood}', "
+                    f"{alerts_path}: alert '{alert.id}' uses neighborhood '{neighborhood}', "
                     f"which is not in {neighborhoods_path} "
                     f"(known: {', '.join(sorted(known_neighborhoods))})"
                 )
-
-    # dbt already keeps searches apart, but event detection takes the last two
-    # runs of a portal, which would be runs of different searches. Refuse rather
-    # than let it go wrong silently; lift this when events work per search.
-    active_ids = [search.id for search in searches if search.active]
-    if len(active_ids) > 1:
-        raise SearchConfigError(
-            f"{searches_path}: {len(active_ids)} searches are active ({', '.join(active_ids)}), "
-            "but events support only one for now; set `active: false` on the others"
-        )
+        for search in alert.searches():
+            if search.id in seen_ids:
+                raise SearchConfigError(f"{alerts_path}: id '{search.id}' appears more than once")
+            seen_ids.add(search.id)
+            searches.append(search)
     return searches

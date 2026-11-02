@@ -1,11 +1,17 @@
 # What to look for. Portals filter by URL, and dbt applies these criteria again
 # on top, because portals ignore or misread some filters.
 #
+# operation: rent | sale | both. With `both`, give a price for each operation:
+#   price:
+#     rent: { currency: ARS, max: 2000000 }
+#     sale: { currency: USD, max: 180000 }
+#
 # A portal with `urls` uses them as written instead of a generated URL. Use it
-# when a portal's URL rules are not supported or have changed.
-searches:
+# when a portal's URL rules are not supported or have changed. A pasted URL is
+# for one operation, so `both` cannot use it.
+alerts:
   - id: alquiler-norte
-    operation: rent                  # rent | sale
+    operation: rent
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }

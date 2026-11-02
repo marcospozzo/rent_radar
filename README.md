@@ -45,7 +45,7 @@ docker compose run --rm app python main.py --ingest --source argenprop \
 - `.env`: database credentials and, optionally, `TELEGRAM_BOT_TOKEN` and
   `TELEGRAM_CHAT_ID`. Without Telegram the `notify` and `check_health` steps
   fail every cycle; the rest of the pipeline keeps running.
-- What to look for: `searches.yaml` (operation, neighborhoods, property types,
+- What to look for: `alerts.yaml` (operation, neighborhoods, property types,
   rooms, price, page limits). It is read on every cycle, so an edit needs no
   restart. ZonaProp and ArgenProp URLs are generated from it; MercadoLibre takes
   the `urls` written in the file. Only one search can be active for now.

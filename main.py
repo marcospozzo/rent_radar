@@ -73,7 +73,7 @@ def parse_args() -> argparse.Namespace:
 	)
 	parser.add_argument(
 		"--search-id",
-		help="Id de la busqueda (searches.yaml) a la que pertenece esta corrida",
+		help="Id de la busqueda (alerts.yaml) a la que pertenece esta corrida",
 	)
 	parser.add_argument(
 		"--expect-name",

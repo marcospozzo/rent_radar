@@ -1,5 +1,5 @@
 """
-Corre los spiders para cada busqueda activa de searches.yaml.
+Corre los spiders para cada busqueda activa de alerts.yaml.
 
 Una corrida es un portal scrapeado para una busqueda (main.py --ingest). Los
 portales corren en paralelo entre si, pero las busquedas de un mismo portal van
@@ -108,7 +108,7 @@ def main() -> None:
         sys.exit(f"Configuracion de busquedas invalida: {exc}")
 
     if not jobs:
-        print("No hay busquedas activas para correr (ver searches.yaml).")
+        print("No hay busquedas activas para correr (ver alerts.yaml).")
         sys.exit(1)
 
     jobs_by_portal: dict[str, list[IngestJob]] = {}
