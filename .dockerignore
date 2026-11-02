@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-apprise-url.txt
+config/apprise-url.txt
 .git
 .claude
 venv

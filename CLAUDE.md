@@ -2,7 +2,7 @@
 
 Personal tool that emails Marc when a new rent or sale listing matching what he
 is looking for appears on ZonaProp, ArgenProp or MercadoLibre in Buenos Aires /
-Gran Buenos Aires. It has no UI: everything is configured in `alerts.yaml`.
+Gran Buenos Aires. It has no UI: everything is configured in `config/alerts.yaml`.
 Hard fork of [rent_radar](https://github.com/NotoFederico/rent_radar) (license:
 MIT), forked at upstream commit 608f241877fdf6516ee161833eaa8b6de373695b.
 
@@ -59,10 +59,11 @@ work calls for it.
 - Database: PostgreSQL 17 in Docker. Schema changes are numbered files in
   `sql/`, applied by the `migrate` service; a removed dbt model's table must be
   dropped by a migration, dbt does not do it.
-- Configuration: `alerts.yaml` (alerts, Apprise services, health), plus
-  `neighborhoods.yaml` (each neighborhood as the portals name it, only entries
-  checked against the live portal). Secrets: `.env` and the file holding the
-  Apprise URL, never the YAML.
+- Configuration lives in `config/`, mounted whole into the containers (a mounted
+  single file goes stale when git or an editor replaces it): `alerts.yaml`
+  (alerts, Apprise services, health) and `neighborhoods.yaml` (each neighborhood
+  as the portals name it, only entries checked against the live portal).
+  Secrets: `.env` and `config/apprise-url.txt` (the Apprise URL), never the YAML.
 - Install: `docker compose build` · Dev: `docker compose up -d`; add
   `--profile dev` for Mailpit (http://127.0.0.1:8025), which catches the emails
   locally.
@@ -128,5 +129,5 @@ work calls for it.
   LAN-only on the homelab. If anything is ever exposed beyond the LAN,
   authenticate it first; hiding a link is not protection.
 - Secrets (the database password, the Apprise URL) live only in `.env` and in
-  the Apprise URL file, and are never committed. Error messages and logs name
+  `config/apprise-url.txt`, and are never committed. Error messages and logs name
   the file or service, never the secret.

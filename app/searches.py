@@ -10,8 +10,8 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 # Relative to the working directory, which is /app for every job in the image.
-ALERTS_FILE = Path(os.environ.get("ALERTS_FILE", "alerts.yaml"))
-NEIGHBORHOODS_FILE = Path(os.environ.get("NEIGHBORHOODS_FILE", "neighborhoods.yaml"))
+ALERTS_FILE = Path(os.environ.get("ALERTS_FILE", "config/alerts.yaml"))
+NEIGHBORHOODS_FILE = Path(os.environ.get("NEIGHBORHOODS_FILE", "config/neighborhoods.yaml"))
 
 Portal = Literal["zonaprop", "argenprop", "mercadolibre"]
 PropertyType = Literal["casa", "departamento", "ph"]

@@ -2,7 +2,7 @@
 
 Emails you when a new rental or sale listing that matches what you are looking
 for appears on ZonaProp, ArgenProp or MercadoLibre in Buenos Aires / Gran Buenos
-Aires. It has no UI of its own: everything is configured in `alerts.yaml`.
+Aires. It has no UI of its own: everything is configured in `config/alerts.yaml`.
 
 ## How it works
 
@@ -10,7 +10,7 @@ Aires. It has no UI of its own: everything is configured in `alerts.yaml`.
 spiders -> raw.snapshots -> dbt -> gold.candidatas -> send_alerts -> email (Apprise)
 ```
 
-1. Every cycle the spiders scrape the searches in `alerts.yaml`. ZonaProp and
+1. Every cycle the spiders scrape the searches in `config/alerts.yaml`. ZonaProp and
    ArgenProp URLs are generated from each alert; MercadoLibre takes the URLs
    written in the file.
 2. dbt cleans and deduplicates the listings and keeps those that meet each
@@ -30,7 +30,7 @@ Requires Docker with Compose.
 
 ```bash
 cp .env.example .env     # set POSTGRES_PASSWORD (letters and digits only)
-# put one Apprise URL in the file named by APPRISE_URL_FILE (see Configuration)
+# put one Apprise URL in config/apprise-url.txt (see Configuration)
 docker compose up -d
 ```
 
@@ -46,7 +46,7 @@ docker compose up -d
 Everything is bound to loopback. Three flows run on their own schedule
 (`prefect.yaml`):
 
-- `rent-radar`, every 10 minutes: sync `alerts.yaml`, scrape ZonaProp and
+- `rent-radar`, every 10 minutes: sync `config/alerts.yaml`, scrape ZonaProp and
   ArgenProp, run dbt, send the alerts, check the portals' health.
 - `rent-radar-mercadolibre`, every hour: scrape MercadoLibre (slow, with
   anti-bot pauses).
@@ -55,11 +55,14 @@ Everything is bound to loopback. Three flows run on their own schedule
 
 ## Configuration
 
-- **`alerts.yaml`** is the only file you edit. It is read on every cycle, so a
-  change needs no restart. It has three parts:
+Everything lives in the `config/` folder, which the containers mount whole. Every
+cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart.
+
+- **`config/alerts.yaml`** is the only file you edit. It has three parts:
   - `apprise.services`: where the alerts go. Each service points at a file
     holding one Apprise URL (`url_file`), because the URL carries a password
-    and must stay out of git. For Gmail the file holds
+    and must stay out of git. Keep it in `config/apprise-url.txt` (git ignores
+    it), on one line and without quotes. For Gmail it is
     `mailto://user:app-password@gmail.com?to=you@example.com`.
   - `health.enabled`: the email about portals that stop returning data.
   - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`,
@@ -69,17 +72,17 @@ Everything is bound to loopback. Three flows run on their own schedule
     `max_pages` and optional `urls`. With `operation: both`, `price` has a
     `rent` and a `sale` entry, and pasted `urls` are not allowed because a URL
     belongs to one operation.
-- **`neighborhoods.yaml`**: each neighborhood as the portals name it in their
-  URLs. Add an entry only after checking the slug on the live portal; a wrong
-  one makes a portal silently search somewhere else.
-- **`.env`**: the database credentials and `APPRISE_URL_FILE`, the path of the
-  Apprise URL file on the host.
+- **`config/neighborhoods.yaml`**: each neighborhood as the portals name it in
+  their URLs. Add an entry only after checking the slug on the live portal; a
+  wrong one makes a portal silently search somewhere else.
+- **`.env`**: the database credentials and, on a server, the image to run and
+  the address to listen on.
 
 ## Development
 
 - Emails locally: `docker compose --profile dev up -d mailpit`, and put
   `mailto://radar:pass@mailpit:1025?mode=insecure&to=you@example.com&from=radar@example.com`
-  in the Apprise URL file. The emails show up at http://127.0.0.1:8025.
+  in `config/apprise-url.txt`. The emails show up at http://127.0.0.1:8025.
 - One-off commands run in the same image, for example
   `docker compose run --rm app python jobs/run_ingest.py --source zonaprop`
   or `docker compose run --rm app python jobs/send_alerts.py`.
@@ -90,12 +93,12 @@ Everything is bound to loopback. Three flows run on their own schedule
 
 ## Deploy on a server
 
-The server only needs Docker Engine with Compose and a registry to pull the image
-from; the repository is not cloned there.
+The image is built for `linux/amd64` and published to GitHub Container Registry
+by `.github/workflows/docker.yml` on every push to master, tagged with the short
+commit SHA and `latest`. The server only needs Docker Engine with Compose; it
+pulls the image and reads `config/` from a clone of this repository.
 
-Publish the image from the development machine, building for the server's
-architecture (`linux/amd64` for an Intel machine, even when you build on an ARM
-Mac; the emulated build takes a while):
+To publish by hand instead (from an ARM Mac the emulated build takes a while):
 
 ```bash
 docker login ghcr.io -u <github-user>      # password: a token with write:packages
@@ -108,22 +111,22 @@ docker buildx build --platform linux/amd64 \
 On the server:
 
 ```bash
-mkdir -p ~/rent-radar && cd ~/rent-radar
-# copy docker-compose.yml, alerts.yaml and .env.example here
+sudo mkdir -p /opt/stacks/rent-radar && sudo chown "$USER":"$USER" /opt/stacks/rent-radar
+git clone https://github.com/marcospozzo/rent_radar.git /opt/stacks/rent-radar
+cd /opt/stacks/rent-radar
 cp .env.example .env
-# in .env set POSTGRES_PASSWORD, RENT_RADAR_IMAGE (pin the tag), BIND_ADDRESS=0.0.0.0
-# and PUBLIC_HOST (the server's IP or name), and uncomment those lines
-# create the file named by APPRISE_URL_FILE with the Apprise URL, readable by the
-# container user (uid 1000):
-chmod 640 apprise-url.txt && sudo chown 1000:1000 apprise-url.txt
-docker login ghcr.io -u <github-user>      # password: a token with read:packages
+# in .env set POSTGRES_PASSWORD, and uncomment RENT_RADAR_IMAGE (pin the tag if you
+# want), BIND_ADDRESS=0.0.0.0 and PUBLIC_HOST (the server's IP or name)
+# put the Apprise URL in config/apprise-url.txt, readable by the container user (uid 1000):
+chmod 640 config/apprise-url.txt && sudo chown 1000:1000 config/apprise-url.txt
+docker login ghcr.io -u <github-user>      # only if the package is private (token: read:packages)
 docker compose pull
 docker compose up -d
 ```
 
-- **Update:** change the tag in `.env`, then `docker compose pull && docker compose up -d`.
+- **Update:** `git pull && docker compose pull && docker compose up -d`.
   `migrate` applies new migrations and `prefect-deploy` registers the flows again.
-  Editing `alerts.yaml` needs no restart.
+  A change that only touches `config/` needs just the `git pull`.
 - **First cycles:** the alerts start in silence (each alert's existing listings
   are recorded, not emailed). A portal with no successful run yet, such as
   MercadoLibre before its first hourly run, or one that is blocked, sends one

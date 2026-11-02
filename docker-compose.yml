@@ -101,15 +101,10 @@ services:
       PREFECT_API_URL: http://prefect-server:4200/api
     command: ["prefect", "worker", "start", "--pool", "local", "--type", "process"]
     volumes:
-      # Edited on the host and read each cycle, so a change needs no rebuild.
-      - ./alerts.yaml:/app/alerts.yaml:ro
-      - type: bind
-        source: ${APPRISE_URL_FILE:?set APPRISE_URL_FILE in .env}
-        target: /run/secrets/apprise-gmail
-        read_only: true
-        bind:
-          # Fail loudly: otherwise Docker creates a directory where the file should be.
-          create_host_path: false
+      # The whole folder, not single files: Docker keeps a single-file mount pointed
+      # at the original inode, so an edit that replaces the file (git pull, sed -i,
+      # most editors) would go unseen. A folder always shows the current files.
+      - ./config:/app/config:ro
     restart: unless-stopped
 
   # One-off commands: `docker compose run --rm app python jobs/run_dbt.py`.
@@ -121,14 +116,7 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - ./alerts.yaml:/app/alerts.yaml:ro
-      - type: bind
-        source: ${APPRISE_URL_FILE:?set APPRISE_URL_FILE in .env}
-        target: /run/secrets/apprise-gmail
-        read_only: true
-        bind:
-          # Fail loudly: otherwise Docker creates a directory where the file should be.
-          create_host_path: false
+      - ./config:/app/config:ro
     restart: "no"
 
   # Development mail catcher: `docker compose --profile dev up -d mailpit`, then open

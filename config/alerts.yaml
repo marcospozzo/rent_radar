@@ -1,9 +1,11 @@
 # Where the alerts go. Each service points at a file holding one Apprise URL,
-# because the URL carries a password and must stay out of git. For Gmail it looks
-# like mailto://user:app-password@gmail.com?to=you@example.com
+# because the URL carries a password and must stay out of git. Keep it in this
+# folder as apprise-url.txt (git ignores it); the folder is mounted at /app/config.
+# For Gmail the file holds, on one line and without quotes:
+#   mailto://user:app-password@gmail.com?to=you@example.com
 apprise:
   services:
-    - url_file: /run/secrets/apprise-gmail
+    - url_file: /app/config/apprise-url.txt
       label: gmail
 
 # An email when a portal stops returning data (blocked, down), and another when it
