@@ -153,13 +153,19 @@ class AppriseConfig(_Strict):
     services: list[AppriseService] = Field(min_length=1)
 
 
+class HealthConfig(_Strict):
+    enabled: bool = True
+
+
 class _AlertsFile(_Strict):
     apprise: AppriseConfig
+    health: HealthConfig = Field(default_factory=HealthConfig)
     alerts: list[Alert]
 
 
 class Config(_Strict):
     apprise: AppriseConfig
+    health: HealthConfig
     searches: list[Search]
 
 
@@ -214,4 +220,4 @@ def load_config(
                 raise SearchConfigError(f"{alerts_path}: id '{search.id}' appears more than once")
             seen_ids.add(search.id)
             searches.append(search)
-    return Config(apprise=parsed.apprise, searches=searches)
+    return Config(apprise=parsed.apprise, health=parsed.health, searches=searches)

@@ -6,6 +6,11 @@ apprise:
     - url_file: /run/secrets/apprise-gmail
       label: gmail
 
+# An email when a portal stops returning data (blocked, down), and another when it
+# comes back. Without it a block is silent: the alerts just stop arriving.
+health:
+  enabled: true
+
 # What to look for. Portals filter by URL, and dbt applies these criteria again
 # on top, because portals ignore or misread some filters.
 #

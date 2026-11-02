@@ -11,3 +11,4 @@ logs/
 nohup.out
 mockup.html
 apprise-url.txt
+jobs/.check_health_db_unreachable
