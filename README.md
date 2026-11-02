@@ -141,6 +141,10 @@ docker compose up -d
 - **ArgenProp** answers some clients with an AWS WAF challenge that the plain
   HTTP spider cannot pass. The run is recorded as `empty` and the health alert
   tells you.
+- **ZonaProp with a price cap in dollars** (typically a sale alert) does not return
+  listings with six or more rooms. Written as "N rooms or more", that cap makes
+  ZonaProp drop neighborhoods from the search, so the rooms go as a range up to 5.
+  A cap in pesos does not have this problem.
 - **MercadoLibre** has no URL builder: it needs `urls` in the alert, and a
   pasted URL covers one operation and one set of neighborhoods.
 - Only **new listings** are alerted: no price changes, no listings that went

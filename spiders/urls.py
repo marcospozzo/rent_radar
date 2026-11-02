@@ -18,9 +18,28 @@ _CURRENCY_WORDS = {"ARS": "pesos", "USD": "dolares"}
 # ArgenProp has no room count above "5 or more".
 _ARGENPROP_TOP_ROOMS = 5
 
+# ZonaProp's room filter tops out at 5; any larger "hasta" is read as 5.
+_ZONAPROP_TOP_ROOMS = 5
+_ZONAPROP_ROOMS_CEILING = 10
+
 
 def _types_in_canonical_order(search: Search) -> list[str]:
     return [kind for kind in _PROPERTY_TYPE_ORDER if kind in search.property_types]
+
+
+def _zonaprop_rooms_segment(search: Search) -> str:
+    rooms = search.rooms
+    if rooms.max is not None:
+        return f"desde-{rooms.min}-hasta-{rooms.max}-ambientes"
+    # "mas-de-N" means N or more; "desde-N" alone means exactly N. But "mas-de-N"
+    # together with a price cap in dollars makes ZonaProp drop part of the
+    # location: it lost Saavedra from a three-neighborhood search, and with
+    # Saavedra alone it searched all of Argentina. A cap in pesos is fine. Written
+    # as a range the dollar cap keeps every neighborhood, at the cost of
+    # listings with six or more rooms, which a range up to "5" does not return.
+    if search.price.max and search.price.currency == "USD" and rooms.min <= _ZONAPROP_TOP_ROOMS:
+        return f"desde-{rooms.min}-hasta-{_ZONAPROP_ROOMS_CEILING}-ambientes"
+    return f"mas-de-{rooms.min}-ambientes"
 
 
 def build_zonaprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) -> str:
@@ -28,14 +47,10 @@ def build_zonaprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) -
         "-".join(_TYPE_WORDS[kind] for kind in _types_in_canonical_order(search)),
         _OPERATION_WORDS[search.operation],
         "-".join(neighborhoods[key].zonaprop for key in search.neighborhoods),
+        # The rooms segment must come before the price one or the neighborhood is
+        # dropped, and a search always has a minimum, so it is always present.
+        _zonaprop_rooms_segment(search),
     ]
-    # "mas-de-N" means N or more; "desde-N" alone means exactly N. The rooms
-    # segment must come before the price one or the neighborhood is dropped,
-    # and a search always has a minimum, so it is always present.
-    if search.rooms.max is None:
-        parts.append(f"mas-de-{search.rooms.min}-ambientes")
-    else:
-        parts.append(f"desde-{search.rooms.min}-hasta-{search.rooms.max}-ambientes")
     if search.min_garage:
         parts.append(f"mas-de-{search.min_garage}-garage")
     if search.min_area_m2:
