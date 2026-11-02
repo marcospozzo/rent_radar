@@ -2,9 +2,9 @@
 .env
 .env.*
 !.env.example
+apprise-url.txt
 .git
 .claude
-.agents
 venv
 .venv
 
@@ -20,11 +20,7 @@ analytics/logs
 analytics/dbt_packages
 
 # Not needed inside the image.
-docs
-systemd
-skills-lock.json
 CLAUDE.md
 README.md
-ARCHITECTURE.md
 Dockerfile
 docker-compose*.yml

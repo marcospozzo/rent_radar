@@ -49,7 +49,7 @@ services:
     command: ["prefect", "server", "start", "--host", "0.0.0.0"]
     environment:
       PREFECT_HOME: /data/prefect
-      # Same 60 s lock timeout the original systemd unit used for SQLite.
+      # Wait up to 60 s for SQLite's write lock instead of failing on contention.
       PREFECT_API_DATABASE_CONNECTION_URL: sqlite+aiosqlite:////data/prefect/prefect.db?timeout=60
       # URL the browser uses to reach the API from the host.
       PREFECT_UI_API_URL: http://localhost:${PREFECT_PORT:-4200}/api

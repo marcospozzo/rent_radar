@@ -1,19 +1,20 @@
 # Rent Radar
 
-Personal monitor of rent and sale listings in Buenos Aires / Gran Buenos Aires.
+Personal tool that emails Marc when a new rent or sale listing matching what he
+is looking for appears on ZonaProp, ArgenProp or MercadoLibre in Buenos Aires /
+Gran Buenos Aires. It has no UI: everything is configured in `alerts.yaml`.
 Hard fork of [rent_radar](https://github.com/NotoFederico/rent_radar) (license:
 MIT), forked at upstream commit 608f241877fdf6516ee161833eaa8b6de373695b.
 
-Goal: dockerize it, then make searches configurable and support sale listings
-(see Workflow). Any other feature: propose options and wait for Marc's decision
-before building it.
+Goal: run it reliably on Marc's homelab (see Workflow). Any other feature:
+propose options and wait for Marc's decision before building it.
 
 ## Working with Marc
 
 - Marc writes to you in Spanish; answer him in Spanish. Everything that stays
   in the repo is in English: code, identifiers, comments, commit messages,
   docs, READMEs.
-- User-facing UI strings (dashboard, Telegram): Spanish es-AR with voseo.
+- User-facing text (the alert emails): Spanish es-AR with voseo.
 - Small, reviewable steps; he wants tight control. When a choice is
   architectural or changes behaviour (data model, permissions, flows,
   dependencies), lay out the options with a recommendation **before** writing
@@ -39,10 +40,9 @@ work calls for it.
   "Origins" note in the README crediting the upstream project.
 - Spiders are the one part to evolve rather than rewrite: they hold the
   hard-won anti-bot handling. Everything around them (schema, search
-  configuration, orchestration, dashboard) can be rebuilt.
+  configuration, orchestration, alerts) can be rebuilt.
 - Read the existing code before replacing it; the comments record real
-  incidents (blocks, outages, wrong geocodes), and a rewrite must keep those
-  fixes.
+  incidents (blocks, outages), and a rewrite must keep those fixes.
 - Don't reformat unrelated code while making a change; one concern per commit.
 
 ## Stack and commands
@@ -50,15 +50,22 @@ work calls for it.
 - Python 3.13 (`requires-python >=3.13`; the host has only 3.9, so everything
   runs in Docker). Prefect (orchestration), dbt-postgres (silver/gold
   transforms), Playwright + `curl_cffi` + `requests`/BeautifulSoup (spiders),
-  psycopg2. Dependency versions are not pinned yet; pinning comes with the
-  Docker step.
-- Database: PostgreSQL 17 in Docker on the homelab (replaces Neon).
-- Scope: rent and sale listings in Buenos Aires / Gran Buenos Aires from
-  ZonaProp, ArgenProp and MercadoLibre. Any number of active searches, each
-  defined as data (operation, neighbourhoods, price range, rooms, property
-  type), not hardcoded.
-- Install: `docker compose build` · Dev: `docker compose up` (both planned,
-  they arrive with the Docker step).
+  psycopg2, Apprise (email alerts).
+- Dependencies are pinned with hashes in `requirements.lock`. After changing
+  `pyproject.toml`, regenerate it with `uv pip compile pyproject.toml
+  --universal --generate-hashes --python-version 3.13 --no-header` inside a
+  `python:3.13-slim-bookworm` container, starting from a copy of the current
+  lock so unrelated versions do not move.
+- Database: PostgreSQL 17 in Docker. Schema changes are numbered files in
+  `sql/`, applied by the `migrate` service; a removed dbt model's table must be
+  dropped by a migration, dbt does not do it.
+- Configuration: `alerts.yaml` (alerts, Apprise services, health), plus
+  `neighborhoods.yaml` (each neighborhood as the portals name it, only entries
+  checked against the live portal). Secrets: `.env` and the file holding the
+  Apprise URL, never the YAML.
+- Install: `docker compose build` · Dev: `docker compose up -d`; add
+  `--profile dev` for Mailpit (http://127.0.0.1:8025), which catches the emails
+  locally.
 - Test and lint/typecheck: none. Personal tool with no production; Marc decided
   automated tests are not required (the upstream project has none).
 
@@ -66,23 +73,26 @@ work calls for it.
 
 - Multi-stage build, pinned base image versions, non-root user, `.dockerignore`.
 - Config through environment variables; no secrets baked into images.
-- `docker-compose.yml` for local dev: healthchecks, named volumes for data.
-- This machine's Homebrew Postgres owns port 5432 (trust auth): containers must
-  publish Postgres on 5433 or another free port.
+- `docker-compose.yml`: healthchecks, named volumes for data.
+- This machine's Homebrew Postgres owns port 5432 (trust auth) and another
+  project owns 5433: Postgres is published on 5434.
 - Document how to build and run in the README.
 
 ## Workflow
 
 - Commit directly to `master` (single developer, no upstream to mirror), one
   commit per concern.
-- Planned changes, in order, one at a time:
-  1. Docker: image, compose, local Postgres, dbt profile, Prefect services.
-  2. Data model with `operation` (rent/sale) and searches defined in a YAML
-     file, with a search id flowing through the whole pipeline.
-  3. Spiders adapted to sale listings on the three portals.
-  4. Dashboard and Telegram per search.
-- Open decisions to settle with Marc before coding: the exact YAML format of a
-  search (step 2).
+- Done: Docker; searches defined in YAML with rent, sale or both; email alerts
+  through Apprise (replacing Telegram and the map dashboard).
+- Next, in order, one at a time:
+  1. Deploy to the homelab: amd64 image on GHCR, compose settings for the LAN,
+     deployment notes in the README.
+  2. ArgenProp: get past its AWS WAF challenge, which blocks the plain HTTP
+     spider.
+  3. Sale listings on ArgenProp and MercadoLibre, and a MercadoLibre URL
+     builder.
+- Open decisions to settle with Marc before coding: how to get past the
+  ArgenProp challenge (a real browser is the likely answer).
 
 ## Git
 
@@ -96,9 +106,9 @@ work calls for it.
 
 - The stack comes up with `docker compose up` and the affected flow runs end to
   end against the local database (never against anything shared or real).
+- Anything that sends email is checked against the dev Mailpit service, never a
+  real mailbox.
 - Say what was run and what was not; no automated tests exist by decision.
-- For UI, load the page and look at what renders; passing types say nothing
-  about layout.
 
 ## Code style
 
@@ -114,9 +124,9 @@ work calls for it.
 
 ## Security
 
-- Always validate every id and value on the server, and never serve the project
-  directory or files holding secrets.
-- Endpoints are LAN-only on the homelab. If any service is ever exposed beyond
-  the LAN, authenticate and authorize each endpoint first; hiding a link is not
-  protection.
-- Secrets live only in `.env` and are never committed.
+- The project listens on no network port of its own; the Prefect UI is
+  LAN-only on the homelab. If anything is ever exposed beyond the LAN,
+  authenticate it first; hiding a link is not protection.
+- Secrets (the database password, the Apprise URL) live only in `.env` and in
+  the Apprise URL file, and are never committed. Error messages and logs name
+  the file or service, never the secret.

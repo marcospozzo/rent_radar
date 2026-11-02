@@ -37,15 +37,9 @@ class ScraperDB:
                 pass
             self.conn = self._connect()
 
-    def initialize(self) -> None:
-        pass
-
     def close(self) -> None:
         if not self.conn.closed:
             self.conn.close()
-
-    def commit(self) -> None:
-        self.conn.commit()
 
     # ------------------------------------------------------------------ writes
 
@@ -96,29 +90,3 @@ class ScraperDB:
                 ],
             )
         self.conn.commit()
-
-    # ------------------------------------------------------------------ reads
-
-    def get_latest_run(self, source: str) -> dict[str, Any] | None:
-        self._ensure_connected()
-        with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT * FROM raw.pipeline_runs
-                WHERE fuente = %s
-                ORDER BY iniciado_en DESC
-                LIMIT 1
-                """,
-                (source,),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-
-    def get_run_snapshots(self, run_id: str) -> list[dict[str, Any]]:
-        self._ensure_connected()
-        with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM raw.snapshots WHERE id_ejecucion = %s",
-                (run_id,),
-            )
-            return [dict(r) for r in cur.fetchall()]
