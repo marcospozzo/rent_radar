@@ -12,7 +12,7 @@ import sys
 import psycopg2
 import psycopg2.extras
 
-from app.searches import Search, SearchConfigError, load_searches
+from app.searches import Search, SearchConfigError, load_config
 
 
 def _row(search: Search) -> tuple[object, ...]:
@@ -31,7 +31,7 @@ def _row(search: Search) -> tuple[object, ...]:
 
 def main() -> None:
     try:
-        searches = load_searches()
+        searches = load_config().searches
     except SearchConfigError as exc:
         sys.exit(f"Invalid search configuration: {exc}")
 

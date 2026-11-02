@@ -83,14 +83,9 @@ def task_geocode_fallback() -> None:
     _run("geocode_fallback.py")
 
 
-@task(name="detect-events")
-def task_detect() -> None:
-    _run("detect_events.py")
-
-
-@task(name="notify")
-def task_notify() -> None:
-    _run("notify.py")
+@task(name="send-alerts")
+def task_send_alerts() -> None:
+    _run("send_alerts.py")
 
 
 @task(name="check-health")
@@ -114,7 +109,7 @@ def _try_step(name: str, fn) -> None:
 
 @flow(name="rent-radar", log_prints=True)
 def pipeline() -> None:
-    """ZonaProp + ArgenProp, transformación, detección y notificación.
+    """ZonaProp + ArgenProp, transformación y alertas por email.
 
     Ningún paso individual puede frenar al resto: check_health (el que avisa
     de fallas) tiene que poder correr en el mismo ciclo sin importar qué haya
@@ -133,8 +128,7 @@ def pipeline() -> None:
             print(f"Ingest falló, se sigue con el resto del pipeline igual: {error}")
     _try_step("dbt", task_dbt)
     _try_step("geocode_fallback", task_geocode_fallback)
-    _try_step("detect_events", task_detect)
-    _try_step("notify", task_notify)
+    _try_step("send_alerts", task_send_alerts)
     task_check_health()
 
 

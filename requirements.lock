@@ -38,7 +38,9 @@ anyio==4.15.1 \
 apprise==2.0.1 \
     --hash=sha256:2a9b0f4fc906227f70998ea4462184dd605e796d3932e6e7ce0fe0f134048610 \
     --hash=sha256:8cae8ae5877b9cfd1dddffc17ac1e50f780ab6bdf948f95215e2466ef7230565
-    # via prefect
+    # via
+    #   rent-radar (pyproject.toml)
+    #   prefect
 asgi-lifespan==2.1.0 \
     --hash=sha256:5e2effaf0bfe39829cf2d64e7ecc47c7d86d676a6599f7afba378c31f5e3a308 \
     --hash=sha256:ed840706680e28428c01e14afb3875d7d76d3206f3d5b2f2294e059b5c23804f

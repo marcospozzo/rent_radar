@@ -15,6 +15,7 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "dbt-postgres>=1.8",
     "pyyaml>=6.0",
+    "apprise>=1.9.0",
 ]
 
 [project.optional-dependencies]

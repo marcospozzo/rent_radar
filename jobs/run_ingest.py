@@ -16,7 +16,7 @@ import threading
 from dataclasses import dataclass
 from typing import get_args
 
-from app.searches import Portal, SearchConfigError, load_neighborhoods, load_searches
+from app.searches import Portal, SearchConfigError, load_config, load_neighborhoods
 from spiders.urls import build_portal_urls
 
 INACTIVITY_TIMEOUT = 120  # segundos sin output → proceso colgado
@@ -36,7 +36,7 @@ class IngestJob:
 def build_jobs(only_portal: str | None) -> list[IngestJob]:
     neighborhoods = load_neighborhoods()
     jobs: list[IngestJob] = []
-    for search in load_searches():
+    for search in load_config().searches:
         if not search.active:
             continue
         for portal, portal_config in search.portals.items():

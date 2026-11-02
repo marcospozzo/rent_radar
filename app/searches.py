@@ -31,6 +31,11 @@ class Operation(str, Enum):
     SALE = "sale"
 
 
+class Delivery(str, Enum):
+    DIGEST = "digest"  # one email per cycle with everything new
+    EACH = "each"  # one email per listing
+
+
 class Rooms(_Strict):
     min: int = Field(ge=1)
     max: int | None = Field(default=None, ge=1)
@@ -61,6 +66,8 @@ class Search(_Strict):
     """One operation looked up on the portals: what the pipeline actually runs."""
 
     id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
+    alert_id: str
+    delivery: Delivery
     operation: Operation
     active: bool = True
     neighborhoods: list[str] = Field(min_length=1)
@@ -77,6 +84,7 @@ class Alert(_Strict):
 
     id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
     operation: Literal["rent", "sale", "both"]
+    delivery: Delivery = Delivery.DIGEST
     active: bool = True
     neighborhoods: list[str] = Field(min_length=1)
     property_types: list[PropertyType] = Field(min_length=1)
@@ -114,6 +122,8 @@ class Alert(_Strict):
         search_id = f"{self.id}-{operation.value}" if self.operation == "both" else self.id
         return Search(
             id=search_id,
+            alert_id=self.id,
+            delivery=self.delivery,
             operation=operation,
             active=self.active,
             neighborhoods=self.neighborhoods,
@@ -132,8 +142,25 @@ class Neighborhood(_Strict):
     argenprop: str
 
 
+class AppriseService(_Strict):
+    # The Apprise URL carries a password, so it lives in a file outside the repo
+    # and the YAML only points at it.
+    url_file: str
+    label: str | None = None
+
+
+class AppriseConfig(_Strict):
+    services: list[AppriseService] = Field(min_length=1)
+
+
 class _AlertsFile(_Strict):
+    apprise: AppriseConfig
     alerts: list[Alert]
+
+
+class Config(_Strict):
+    apprise: AppriseConfig
+    searches: list[Search]
 
 
 def _read_yaml(path: Path) -> object:
@@ -161,14 +188,15 @@ def load_neighborhoods(path: Path = NEIGHBORHOODS_FILE) -> dict[str, Neighborhoo
         raise SearchConfigError(f"{path}: {_describe(exc)}") from exc
 
 
-def load_searches(
+def load_config(
     alerts_path: Path = ALERTS_FILE,
     neighborhoods_path: Path = NEIGHBORHOODS_FILE,
-) -> list[Search]:
+) -> Config:
     try:
-        alerts = _AlertsFile.model_validate(_read_yaml(alerts_path)).alerts
+        parsed = _AlertsFile.model_validate(_read_yaml(alerts_path))
     except ValidationError as exc:
         raise SearchConfigError(f"{alerts_path}: {_describe(exc)}") from exc
+    alerts = parsed.alerts
 
     known_neighborhoods = load_neighborhoods(neighborhoods_path)
     seen_ids: set[str] = set()
@@ -186,4 +214,4 @@ def load_searches(
                 raise SearchConfigError(f"{alerts_path}: id '{search.id}' appears more than once")
             seen_ids.add(search.id)
             searches.append(search)
-    return searches
+    return Config(apprise=parsed.apprise, searches=searches)

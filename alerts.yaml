@@ -1,5 +1,16 @@
+# Where the alerts go. Each service points at a file holding one Apprise URL,
+# because the URL carries a password and must stay out of git. For Gmail it looks
+# like mailto://user:app-password@gmail.com?to=you@example.com
+apprise:
+  services:
+    - url_file: /run/secrets/apprise-gmail
+      label: gmail
+
 # What to look for. Portals filter by URL, and dbt applies these criteria again
 # on top, because portals ignore or misread some filters.
+#
+# delivery: digest (default) sends one email per cycle with everything new;
+# each sends one email per listing.
 #
 # operation: rent | sale | both. With `both`, give a price for each operation:
 #   price:
@@ -12,6 +23,7 @@
 alerts:
   - id: alquiler-norte
     operation: rent
+    delivery: digest
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }
