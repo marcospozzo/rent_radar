@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 
 from app.db import ScraperDB
-from app.models import Event, EventType, Listing, Notification, PipelineRun
+from app.models import Listing, PipelineRun
 from spiders import scrape_source
 
 logging.basicConfig(

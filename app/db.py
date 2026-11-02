@@ -97,57 +97,6 @@ class ScraperDB:
             )
         self.conn.commit()
 
-    def insert_events(self, rows: Iterable[dict[str, Any]]) -> None:
-        records = list(rows)
-        if not records:
-            return
-        self._ensure_connected()
-        with self.conn.cursor() as cur:
-            psycopg2.extras.execute_values(
-                cur,
-                """
-                INSERT INTO raw.events
-                    (id_evento, id_ejecucion, fuente, id_publicacion, tipo_evento,
-                     titulo, url, precio_anterior, precio_nuevo, detectado_en, fue_notificado)
-                VALUES %s
-                ON CONFLICT (id_evento) DO NOTHING
-                """,
-                [
-                    (
-                        r["id_evento"], r["id_ejecucion"], r["fuente"], r["id_publicacion"],
-                        r["tipo_evento"], r["titulo"], r["url"],
-                        r.get("precio_anterior"), r.get("precio_nuevo"),
-                        r["detectado_en"], r.get("fue_notificado", False),
-                    )
-                    for r in records
-                ],
-            )
-        self.conn.commit()
-
-    def insert_notifications(self, rows: Iterable[dict[str, Any]]) -> None:
-        records = list(rows)
-        if not records:
-            return
-        self._ensure_connected()
-        with self.conn.cursor() as cur:
-            psycopg2.extras.execute_values(
-                cur,
-                """
-                INSERT INTO raw.notifications
-                    (id_evento, canal, tipo_notificacion, ids_notificados, mensaje, estado, enviado_en)
-                VALUES %s
-                """,
-                [
-                    (
-                        r.get("id_evento"), r["canal"], r["tipo_notificacion"],
-                        r.get("ids_notificados", []), r.get("mensaje"),
-                        r.get("estado", "sent"), r["enviado_en"],
-                    )
-                    for r in records
-                ],
-            )
-        self.conn.commit()
-
     # ------------------------------------------------------------------ reads
 
     def get_latest_run(self, source: str) -> dict[str, Any] | None:
@@ -173,20 +122,3 @@ class ScraperDB:
                 (run_id,),
             )
             return [dict(r) for r in cur.fetchall()]
-
-    def get_pending_events(self) -> list[dict[str, Any]]:
-        self._ensure_connected()
-        with self.conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM raw.events WHERE fue_notificado = FALSE ORDER BY detectado_en"
-            )
-            return [dict(r) for r in cur.fetchall()]
-
-    def mark_event_as_notified(self, event_id: str) -> None:
-        self._ensure_connected()
-        with self.conn.cursor() as cur:
-            cur.execute(
-                "UPDATE raw.events SET fue_notificado = TRUE WHERE id_evento = %s",
-                (event_id,),
-            )
-        self.conn.commit()

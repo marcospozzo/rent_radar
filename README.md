@@ -2,8 +2,7 @@
 
 Personal monitor of rental listings in Buenos Aires / Gran Buenos Aires. It
 scrapes ZonaProp, ArgenProp and MercadoLibre, cleans and deduplicates the
-listings with dbt, detects new listings and price changes, sends Telegram
-notifications.
+listings with dbt and emails an alert for each new listing.
 
 Support for sale listings and configurable searches is planned; today the
 searches are fixed (see Configuration).
@@ -60,7 +59,7 @@ docker compose run --rm app python main.py --ingest --source argenprop \
 ```
 spiders -> raw.snapshots -> dbt -> silver.publicaciones -> gold.candidatas
                                          |
-                      detect_events -> silver.events -> Telegram
+                      send_alerts -> silver.avisos -> email (Apprise)
 ```
 
 ## Known limitations
