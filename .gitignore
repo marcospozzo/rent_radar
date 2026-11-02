@@ -9,6 +9,4 @@ dist/
 .DS_Store
 logs/
 nohup.out
-dashboard.html
-dashboard/
 mockup.html

@@ -43,11 +43,11 @@ COPY --from=builder /opt/venv /opt/venv
 RUN playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
-# /data/prefect and /data/dashboard exist in the image so named volumes mounted
-# there inherit the app user's ownership (Docker copies it on first use).
+# /data/prefect exists in the image so a named volume mounted there inherits the
+# app user's ownership (Docker copies it on first use).
 RUN useradd --create-home --uid 1000 app \
-    && mkdir /app /data /data/prefect /data/dashboard \
-    && chown app:app /app /data/prefect /data/dashboard
+    && mkdir /app /data /data/prefect \
+    && chown app:app /app /data/prefect
 
 USER app
 WORKDIR /app

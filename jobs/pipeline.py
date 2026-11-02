@@ -93,11 +93,6 @@ def task_notify() -> None:
     _run("notify.py")
 
 
-@task(name="dashboard")
-def task_mapa() -> None:
-    _run("run_dashboard.py")
-
-
 @task(name="check-health")
 def task_check_health() -> None:
     _run("check_health.py")
@@ -119,7 +114,7 @@ def _try_step(name: str, fn) -> None:
 
 @flow(name="rent-radar", log_prints=True)
 def pipeline() -> None:
-    """ZonaProp + ArgenProp, transformación, detección, notificación y dashboard.
+    """ZonaProp + ArgenProp, transformación, detección y notificación.
 
     Ningún paso individual puede frenar al resto: check_health (el que avisa
     de fallas) tiene que poder correr en el mismo ciclo sin importar qué haya
@@ -140,7 +135,6 @@ def pipeline() -> None:
     _try_step("geocode_fallback", task_geocode_fallback)
     _try_step("detect_events", task_detect)
     _try_step("notify", task_notify)
-    _try_step("dashboard", task_mapa)
     task_check_health()
 
 

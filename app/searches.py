@@ -124,13 +124,12 @@ def load_searches(
                 )
 
     # dbt already keeps searches apart, but event detection takes the last two
-    # runs of a portal, which would be runs of different searches, and the
-    # dashboard would list a property once per search. Refuse rather than let
-    # both go wrong silently; lift this when they work per search.
+    # runs of a portal, which would be runs of different searches. Refuse rather
+    # than let it go wrong silently; lift this when events work per search.
     active_ids = [search.id for search in searches if search.active]
     if len(active_ids) > 1:
         raise SearchConfigError(
             f"{searches_path}: {len(active_ids)} searches are active ({', '.join(active_ids)}), "
-            "but events and the dashboard support only one for now; set `active: false` on the others"
+            "but events support only one for now; set `active: false` on the others"
         )
     return searches

@@ -12,7 +12,6 @@ venv
 __pycache__
 *.pyc
 *.egg-info
-dashboard.html
 mockup.html
 logs
 nohup.out
@@ -29,4 +28,3 @@ README.md
 ARCHITECTURE.md
 Dockerfile
 docker-compose*.yml
-dashboard

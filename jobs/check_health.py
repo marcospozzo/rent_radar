@@ -1,7 +1,6 @@
 """
 Avisa por Telegram cuando una fuente lleva sin una corrida `ok` más tiempo del
-esperado (ej. bloqueo anti-bot persistente). Usa los mismos umbrales que el
-badge "desactualizado" del dashboard (ver run_dashboard.py).
+esperado (ej. bloqueo anti-bot persistente).
 
 La alerta se envía una sola vez por episodio: mientras la fuente sigue
 desactualizada no se repite, y al recuperarse se avisa que volvió a andar.
@@ -31,7 +30,7 @@ if not DATABASE_URL:
 
 from app.telegram import TelegramNotifier
 
-# Mismos umbrales que _stale_badge en run_dashboard.py.
+# Minutos sin una corrida ok a partir de los cuales se avisa, por fuente.
 THRESHOLDS_MIN = {
     "zonaprop": 90,
     "argenprop": 90,

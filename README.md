@@ -3,7 +3,7 @@
 Personal monitor of rental listings in Buenos Aires / Gran Buenos Aires. It
 scrapes ZonaProp, ArgenProp and MercadoLibre, cleans and deduplicates the
 listings with dbt, detects new listings and price changes, sends Telegram
-notifications and serves a map dashboard.
+notifications.
 
 Support for sale listings and configurable searches is planned; today the
 searches are fixed (see Configuration).
@@ -24,7 +24,6 @@ docker compose up -d
 | `prefect-server` | Prefect API and UI | http://127.0.0.1:4200 |
 | `prefect-deploy` | Registers the work pool and deployments, then exits | none |
 | `worker` | Runs the flows | none |
-| `dashboard` | Map dashboard | http://127.0.0.1:8080/dashboard.html |
 
 Everything is bound to loopback. To reach it from the LAN, change the bind
 address of the `ports` entries in `docker-compose.yml`.
@@ -62,8 +61,6 @@ docker compose run --rm app python main.py --ingest --source argenprop \
 spiders -> raw.snapshots -> dbt -> silver.publicaciones -> gold.candidatas
                                          |
                       detect_events -> silver.events -> Telegram
-                                         |
-                                  dashboard.html (shared volume) -> dashboard service
 ```
 
 ## Known limitations
@@ -72,8 +69,6 @@ spiders -> raw.snapshots -> dbt -> silver.publicaciones -> gold.candidatas
   requests with an empty CloudFront challenge, and the spider records that run
   as `empty`. Keep search volume and frequency modest.
 - `NEON_DATABASE_URL` keeps its upstream name but points at the local database.
-- The dashboard does not authenticate `POST /api/estado` and does not escape
-  listing titles. Fine on a trusted LAN; do not expose it further.
 
 ## Origins
 

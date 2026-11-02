@@ -13,7 +13,6 @@ x-app: &app
     DBT_PASSWORD: ${POSTGRES_PASSWORD}
     DBT_DBNAME: ${POSTGRES_DB}
     DBT_SSLMODE: disable
-    DASHBOARD_DIR: /data/dashboard
     TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
   # Chromium crashes with the default 64 MB /dev/shm.
@@ -102,29 +101,8 @@ services:
       PREFECT_API_URL: http://prefect-server:4200/api
     command: ["prefect", "worker", "start", "--pool", "local", "--type", "process"]
     volumes:
-      - dashboard-data:/data/dashboard
       # Edited on the host and read each cycle, so a change needs no rebuild.
       - ./searches.yaml:/app/searches.yaml:ro
-    restart: unless-stopped
-
-  # Serves only /data/dashboard, which the worker refreshes every cycle.
-  dashboard:
-    <<: *app
-    command: ["python", "jobs/run_dashboard.py", "--serve", "--port", "8080"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    volumes:
-      - dashboard-data:/data/dashboard
-    ports:
-      # Loopback only; change the bind address to expose it on the LAN.
-      - "127.0.0.1:${DASHBOARD_PORT:-8080}:8080"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/mtime')"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 15s
     restart: unless-stopped
 
   # One-off commands: `docker compose run --rm app python jobs/run_dbt.py`.
@@ -142,4 +120,3 @@ services:
 volumes:
   db-data:
   prefect-data:
-  dashboard-data:
