@@ -13,8 +13,6 @@ x-app: &app
     DBT_PASSWORD: ${POSTGRES_PASSWORD}
     DBT_DBNAME: ${POSTGRES_DB}
     DBT_SSLMODE: disable
-    TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-    TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
   # Chromium crashes with the default 64 MB /dev/shm.
   shm_size: 1gb
 

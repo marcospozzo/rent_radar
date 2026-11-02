@@ -78,11 +78,6 @@ def task_dbt() -> None:
     _run("run_dbt.py")
 
 
-@task(name="geocode-fallback")
-def task_geocode_fallback() -> None:
-    _run("geocode_fallback.py")
-
-
 @task(name="send-alerts")
 def task_send_alerts() -> None:
     _run("send_alerts.py")
@@ -127,7 +122,6 @@ def pipeline() -> None:
         if isinstance(error, Exception):
             print(f"Ingest falló, se sigue con el resto del pipeline igual: {error}")
     _try_step("dbt", task_dbt)
-    _try_step("geocode_fallback", task_geocode_fallback)
     _try_step("send_alerts", task_send_alerts)
     task_check_health()
 

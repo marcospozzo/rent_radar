@@ -4,9 +4,8 @@
     Sirve para aproximar distancias cortas sin Haversine/PostGIS: 1 grado de
     longitud equivale a esto mismo multiplicado por cos(latitud), porque los
     meridianos se acercan entre sí cerca de los polos.
-    Usado por publicaciones.sql y publicaciones_rechazadas.sql para detectar
-    coordenadas mal geocodificadas por el portal de origen (ver zone_center /
-    zone_radius y geocode_fallback.py, que replica este mismo cálculo en Python).
+    Usado por publicaciones.sql para detectar el mismo inmueble publicado más de
+    una vez (ver el CTE duplicados).
 #}
 111.32
 {% endmacro %}

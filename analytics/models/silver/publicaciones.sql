@@ -126,8 +126,6 @@ duplicados as (
 
 enriched as (
     -- Aplica COALESCE(raw, specs) para ambientes y añade columnas nuevas desde specs.
-    -- Las coordenadas prefieren silver.coordenadas_override (ver geocode_fallback.py)
-    -- sobre las del portal: algunos portales geocodifican mal una dirección correcta.
     select
         d.id,
         d.id_ejecucion,
@@ -139,8 +137,8 @@ enriched as (
         d.moneda,
         d.expensas,
         d.ubicacion,
-        coalesce(co.latitud,  d.latitud)  as latitud,
-        coalesce(co.longitud, d.longitud) as longitud,
+        d.latitud,
+        d.longitud,
         coalesce(d.ambientes, sp.spec_ambientes) as ambientes,
         sp.superficie_cubierta,
         sp.superficie_total,
@@ -152,92 +150,13 @@ enriched as (
         d.especificaciones
     from deduped d
     left join specs_parsed sp on d.id = sp.id
-    left join silver.coordenadas_override co
-        on co.fuente = d.fuente and co.id_publicacion = d.id_publicacion
-),
-
-zone_center as (
-    -- Centro de la zona buscada = mediana de lat/lon de las propias publicaciones.
-    -- No se hardcodea ningún punto fijo: si las URLs de búsqueda en run_ingest.py
-    -- cambian de zona, el centro se recalcula solo en la próxima corrida.
-    -- La mediana es robusta a outliers, así 1-2 publicaciones mal geocodificadas
-    -- no corren el centro.
-    select
-        percentile_cont(0.5) within group (order by latitud)  as center_lat,
-        percentile_cont(0.5) within group (order by longitud) as center_lon
-    from enriched
-    where latitud is not null and longitud is not null
-      and latitud < 0 and longitud < 0
-),
-
-distances as (
-    select
-        e.id,
-        sqrt(
-            power((e.latitud - zc.center_lat) * {{ km_per_degree_lat() }}, 2)
-          + power((e.longitud - zc.center_lon) * {{ km_per_degree_lat() }} * cos(radians(zc.center_lat)), 2)
-        ) as distance_to_center_km
-    from enriched e
-    cross join zone_center zc
-    where e.latitud is not null and e.longitud is not null
-),
-
-zone_radius as (
-    -- Radio = cerca-lejos de Tukey (Q3 + 3·RIC) sobre las distancias al centro: un
-    -- criterio estadístico estándar para separar errores genuinos de geocodificación
-    -- del portal de origen (casi siempre a cientos de km) de zonas de búsqueda
-    -- legítimas pero más alejadas del centro (ver URLs nuevas en run_ingest.py).
-    -- A diferencia de mediana*4, que solo capta el ancho del cluster dominante, este
-    -- se adapta a la dispersión real de los puntos válidos: agregar una zona nueva
-    -- (ej. Caballito) no la descarta por estar "lejos" del centro de la zona vieja.
-    -- Piso de 5km para no sobre-ajustar si hay pocas publicaciones.
-    select
-        greatest(
-            percentile_cont(0.75) within group (order by distance_to_center_km)
-            + 3 * (
-                percentile_cont(0.75) within group (order by distance_to_center_km)
-              - percentile_cont(0.25) within group (order by distance_to_center_km)
-            ),
-            5
-        ) as radius_km
-    from distances
-),
-
-filtered as (
-    select
-        e.*,
-        d.distance_to_center_km,
-        case
-            when e.titulo ilike '%uso comercial%'
-              or e.titulo ilike '%solo comercial%'                        then 'uso_comercial'
-            when e.titulo ilike '%venta permuta%'                        then 'venta_permuta'
-            when e.url           is null                                 then 'url_nula'
-            when e.titulo        is null                                 then 'titulo_nulo'
-            when e.precio        is null                                 then 'precio_nulo'
-            when e.moneda        is null                                 then 'moneda_nula'
-            when e.ubicacion     is null                                 then 'ubicacion_nula'
-            when e.latitud       is null                                 then 'latitud_nula'
-            when e.longitud      is null                                 then 'longitud_nula'
-            when e.ambientes     is null                                 then 'ambientes_nulo'
-            when coalesce(e.superficie_cubierta, e.superficie_total) is null then 'superficie_nula'
-            when e.latitud  >= 0                                         then 'latitud_invalida'
-            when e.longitud >= 0                                         then 'longitud_invalida'
-            when d.distance_to_center_km > zr.radius_km                     then 'coordenadas_fuera_de_zona'
-            when e.ambientes     = 0                                     then 'ambientes_cero'
-            when coalesce(e.superficie_cubierta, e.superficie_total) = 0 then 'superficie_cero'
-            when e.precio = 9999999                                      then 'precio_placeholder'
-            when e.moneda = 'ARS' and e.precio < 500000                  then 'precio_ars_bajo'
-            when e.moneda = 'ARS' and e.precio > 3000000                 then 'precio_ars_alto'
-            when e.moneda = 'USD' and e.precio < 100                     then 'precio_usd_bajo'
-            when e.moneda = 'USD' and e.precio > 3000                    then 'precio_usd_alto'
-            else null
-        end as motivo_rechazo
-    from enriched e
-    left join distances d on d.id = e.id
-    cross join zone_radius zr
-    where e.id not in (select id_a_eliminar from duplicados)
 )
 
+-- Solo se descarta lo inservible. Un dato que falta (coordenadas, ubicación,
+-- superficie, ambientes) no lo es: el portal ya filtró por barrio, ambientes y
+-- precio, y sin mapa esos datos no hacen falta para avisar de una publicación.
+-- Tampoco hay topes de precio absolutos, porque dependen de la operación; el máximo
+-- de cada búsqueda lo aplica gold.candidatas.
 select
     id,
     id_ejecucion,
@@ -260,5 +179,14 @@ select
     fecha_scraping,
     vendedor,
     especificaciones
-from filtered
-where motivo_rechazo is null
+from enriched
+where id not in (select id_a_eliminar from duplicados)
+  and titulo not ilike '%uso comercial%'
+  and titulo not ilike '%solo comercial%'
+  and titulo not ilike '%venta permuta%'
+  and url is not null
+  and precio > 0
+  and precio <> 9999999            -- placeholder de "consultar precio"
+  and moneda is not null
+  and ambientes is distinct from 0
+  and coalesce(superficie_cubierta, superficie_total) is distinct from 0

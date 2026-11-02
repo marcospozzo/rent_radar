@@ -14,10 +14,13 @@ inner join {{ ref('publicaciones_busquedas') }} pb
    and pb.id_publicacion = p.id_publicacion
 inner join silver.busquedas b
     on b.id_busqueda = pb.id_busqueda
-where p.ambientes >= b.ambientes_min
-  and (b.ambientes_max is null or p.ambientes <= b.ambientes_max)
+-- Ambientes o superficie desconocidos pasan: el portal ya filtró por ellos y perder
+-- un aviso por un dato que no se pudo leer es peor que mostrar uno de más.
+where (p.ambientes is null or p.ambientes >= b.ambientes_min)
+  and (p.ambientes is null or b.ambientes_max is null or p.ambientes <= b.ambientes_max)
   and coalesce(p.cocheras, 0) >= b.cocheras_min
   and (b.superficie_min_m2 is null
+       or coalesce(p.superficie_cubierta, p.superficie_total) is null
        or coalesce(p.superficie_cubierta, p.superficie_total) >= b.superficie_min_m2)
   and (
       b.precio_max is null
