@@ -83,17 +83,31 @@ work calls for it.
 
 - Commit directly to `master` (single developer, no upstream to mirror), one
   commit per concern.
+- The Mac keeps no running stack and no local database: code is written here and
+  tested on the homelab. Commit, `git push origin master`, wait for the image
+  workflow (`gh run list --limit 1`), then on the server:
+  `ssh home-server`, `cd /opt/stacks/rent-radar`,
+  `git pull && docker compose pull && docker compose up -d`. Useful there:
+  `docker compose logs --tail 50 worker`, and
+  `docker compose exec worker prefect deployment run 'rent-radar/cada_10min'` to
+  run a cycle now. A local `docker compose up` still works if a change needs it.
+- The server's `config/alerts.yaml` has local edits (alert `norte`, rent and
+  sale), so a `git pull` that changes that file will conflict: bring the server's
+  version into the repo first.
 - Done: Docker; searches defined in YAML with rent, sale or both; email alerts
-  through Apprise (replacing Telegram and the map dashboard).
+  through Apprise (replacing Telegram and the map dashboard); deployed on the
+  homelab, where the ZonaProp alerts are running.
+- Known state of the portals on the server: ZonaProp rent and sale work;
+  ArgenProp returns only the first page of a search and is cut off by its
+  rate limit (it asks for every listing's detail page each cycle); MercadoLibre
+  has not been looked at on the server yet.
 - Next, in order, one at a time:
-  1. Deploy to the homelab: amd64 image on GHCR, compose settings for the LAN,
-     deployment notes in the README.
-  2. ArgenProp: get past its AWS WAF challenge, which blocks the plain HTTP
-     spider.
-  3. Sale listings on ArgenProp and MercadoLibre, and a MercadoLibre URL
-     builder.
-- Open decisions to settle with Marc before coding: how to get past the
-  ArgenProp challenge (a real browser is the likely answer).
+  1. ArgenProp: stop asking for the detail of every listing each cycle (only the
+     new ones) so the rate limit stops cutting it off and every page is read.
+  2. MercadoLibre: check its flow on the server, then a URL builder and sale
+     listings.
+- Open decisions to settle with Marc before coding: how to cut the ArgenProp
+  requests (detail only for new listings, slower pacing, or a real browser).
 
 ## Git
 
