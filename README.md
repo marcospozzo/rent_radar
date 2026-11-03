@@ -65,13 +65,13 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
     it), on one line and without quotes. For Gmail it is
     `mailto://user:app-password@gmail.com?to=you@example.com`.
   - `health.enabled`: the email about portals that stop returning data.
-  - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`,
-    `sale` or `both`), a `delivery` (`digest` or `each`), `neighborhoods`,
+  - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`
+    or `sale`), a `delivery` (`digest` or `each`), `neighborhoods`,
     `property_types`, `rooms`, optional `min_garage` and `min_area_m2`, a
-    `price` (`currency` and an optional `min` and `max`), and the `portals` to scrape with their
-    `max_pages` and optional `urls`. With `operation: both`, `price` has a
-    `rent` and a `sale` entry, and pasted `urls` are not allowed because a URL
-    belongs to one operation.
+    `price` (`currency` and an optional `min` and `max`), and the `portals` to
+    scrape with their `max_pages` and optional `urls`. An alert is one
+    operation; to look for both, write two alerts, which can differ in
+    property types, rooms or neighborhoods.
 - **`config/neighborhoods.yaml`**: each neighborhood as the portals name it in
   their URLs. Add an entry only after checking the slug on the live portal; a
   wrong one makes a portal silently search somewhere else.

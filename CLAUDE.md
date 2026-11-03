@@ -94,7 +94,7 @@ work calls for it.
 - The server's `config/alerts.yaml` has local edits (alert `norte`, rent and
   sale), so a `git pull` that changes that file will conflict: bring the server's
   version into the repo first.
-- Done: Docker; searches defined in YAML with rent, sale or both; email alerts
+- Done: Docker; searches defined in YAML, one operation (rent or sale) per alert; email alerts
   through Apprise (replacing Telegram and the map dashboard); deployed on the
   homelab, where the ZonaProp alerts are running.
 - Known state of the portals on the server: ZonaProp rent and sale work;

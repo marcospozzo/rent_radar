@@ -108,9 +108,8 @@ def main() -> None:
             cur.execute(FETCH_PENDING)
             pending = cast(list[PendingRow], cur.fetchall())
 
-        # search id -> [(key, listing)]. One email per search, so each says whether it
-        # is rent or sale even when an alert covers both. A pending row whose search
-        # left the config stays pending until the search comes back.
+        # search id -> [(key, listing)]. A pending row whose search left the config
+        # stays pending until the search comes back.
         by_search: dict[str, list[tuple[Key, NewListing]]] = {}
         for row in pending:
             search = searches.get(row["id_busqueda"])
@@ -126,9 +125,9 @@ def main() -> None:
             for batch in batches:
                 listings = [listing for _, listing in batch]
                 title, body = (
-                    digest_message(search.alert_id, search.operation, listings)
+                    digest_message(search.id, search.operation, listings)
                     if search.delivery is Delivery.DIGEST
-                    else single_message(search.alert_id, listings[0])
+                    else single_message(search.id, listings[0])
                 )
                 if send(notifier, title, body):
                     with conn, conn.cursor() as cur:

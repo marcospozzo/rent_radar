@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 # Relative to the working directory, which is /app for every job in the image.
 ALERTS_FILE = Path(os.environ.get("ALERTS_FILE", "config/alerts.yaml"))
@@ -59,23 +59,18 @@ class Price(_Strict):
         return self
 
 
-class BothPrices(_Strict):
-    rent: Price
-    sale: Price
-
-
 class PortalConfig(_Strict):
     max_pages: int = Field(default=20, ge=1)
     urls: list[str] = Field(default_factory=list)
 
 
 class Search(_Strict):
-    """One operation looked up on the portals: what the pipeline actually runs."""
+    """One alert from alerts.yaml: one operation looked up on the portals, which is
+    what the pipeline actually runs."""
 
     id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
-    alert_id: str
-    delivery: Delivery
     operation: Operation
+    delivery: Delivery = Delivery.DIGEST
     active: bool = True
     neighborhoods: list[str] = Field(min_length=1)
     property_types: list[PropertyType] = Field(min_length=1)
@@ -85,62 +80,15 @@ class Search(_Strict):
     price: Price
     portals: dict[Portal, PortalConfig] = Field(min_length=1)
 
-
-class Alert(_Strict):
-    """What alerts.yaml asks for. An alert on `both` operations becomes two searches."""
-
-    id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
-    operation: Literal["rent", "sale", "both"]
-    delivery: Delivery = Delivery.DIGEST
-    active: bool = True
-    neighborhoods: list[str] = Field(min_length=1)
-    property_types: list[PropertyType] = Field(min_length=1)
-    rooms: Rooms
-    min_garage: int = Field(default=0, ge=0)
-    min_area_m2: int | None = Field(default=None, gt=0)
-    price: Price | BothPrices
-    portals: dict[Portal, PortalConfig] = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def _operation_matches_the_rest(self) -> Alert:
-        both = self.operation == "both"
-        if both and not isinstance(self.price, BothPrices):
-            raise ValueError("operation 'both' needs a price for each: price: { rent: {...}, sale: {...} }")
-        if not both and isinstance(self.price, BothPrices):
-            raise ValueError(f"operation '{self.operation}' takes one price, not a rent and sale pair")
-        if both and any(portal.urls for portal in self.portals.values()):
+    @field_validator("operation", mode="before")
+    @classmethod
+    def _one_operation_per_alert(cls, value: object) -> object:
+        if value == "both":
             raise ValueError(
-                "operation 'both' cannot use portals.<portal>.urls, because a pasted URL is for "
-                "one operation; make one alert for rent and another for sale"
+                "an alert is either 'rent' or 'sale'; to look for both, write two alerts, "
+                "each with its own price"
             )
-        return self
-
-    def searches(self) -> list[Search]:
-        if isinstance(self.price, BothPrices):
-            return [
-                self._search(Operation.RENT, self.price.rent),
-                self._search(Operation.SALE, self.price.sale),
-            ]
-        return [self._search(Operation(self.operation), self.price)]
-
-    def _search(self, operation: Operation, price: Price) -> Search:
-        # Rent and sale prices are never mixed: each operation is its own search,
-        # with its own runs and its own criteria.
-        search_id = f"{self.id}-{operation.value}" if self.operation == "both" else self.id
-        return Search(
-            id=search_id,
-            alert_id=self.id,
-            delivery=self.delivery,
-            operation=operation,
-            active=self.active,
-            neighborhoods=self.neighborhoods,
-            property_types=self.property_types,
-            rooms=self.rooms,
-            min_garage=self.min_garage,
-            min_area_m2=self.min_area_m2,
-            price=price,
-            portals=self.portals,
-        )
+        return value
 
 
 class Neighborhood(_Strict):
@@ -167,7 +115,7 @@ class HealthConfig(_Strict):
 class _AlertsFile(_Strict):
     apprise: AppriseConfig
     health: HealthConfig = Field(default_factory=HealthConfig)
-    alerts: list[Alert]
+    alerts: list[Search]
 
 
 class Config(_Strict):
@@ -209,22 +157,17 @@ def load_config(
         parsed = _AlertsFile.model_validate(_read_yaml(alerts_path))
     except ValidationError as exc:
         raise SearchConfigError(f"{alerts_path}: {_describe(exc)}") from exc
-    alerts = parsed.alerts
-
     known_neighborhoods = load_neighborhoods(neighborhoods_path)
     seen_ids: set[str] = set()
-    searches: list[Search] = []
-    for alert in alerts:
-        for neighborhood in alert.neighborhoods:
+    for search in parsed.alerts:
+        for neighborhood in search.neighborhoods:
             if neighborhood not in known_neighborhoods:
                 raise SearchConfigError(
-                    f"{alerts_path}: alert '{alert.id}' uses neighborhood '{neighborhood}', "
+                    f"{alerts_path}: alert '{search.id}' uses neighborhood '{neighborhood}', "
                     f"which is not in {neighborhoods_path} "
                     f"(known: {', '.join(sorted(known_neighborhoods))})"
                 )
-        for search in alert.searches():
-            if search.id in seen_ids:
-                raise SearchConfigError(f"{alerts_path}: id '{search.id}' appears more than once")
-            seen_ids.add(search.id)
-            searches.append(search)
-    return Config(apprise=parsed.apprise, health=parsed.health, searches=searches)
+        if search.id in seen_ids:
+            raise SearchConfigError(f"{alerts_path}: id '{search.id}' appears more than once")
+        seen_ids.add(search.id)
+    return Config(apprise=parsed.apprise, health=parsed.health, searches=parsed.alerts)

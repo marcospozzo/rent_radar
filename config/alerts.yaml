@@ -16,30 +16,52 @@ health:
 # What to look for. Portals filter by URL, and dbt applies these criteria again
 # on top, because portals ignore or misread some filters.
 #
+# Each alert is one operation, `rent` or `sale`, with its own price. To look for
+# both, write two alerts: that way each can ask for different property types,
+# rooms or neighborhoods (houses to buy, PHs to rent).
+#
 # delivery: digest (default) sends one email per cycle with everything new;
 # each sends one email per listing.
 #
-# operation: rent | sale | both. With `both`, give a price for each operation:
-#   price:
-#     rent: { currency: ARS, max: 2000000 }
-#     sale: { currency: USD, max: 180000 }
+# price.min and price.max are both optional, alone or together. The minimum
+# compares the listing's price alone; the maximum adds the expensas.
 #
 # A portal with `urls` uses them as written instead of a generated URL. Use it
-# when a portal's URL rules are not supported or have changed. A pasted URL is
-# for one operation, so `both` cannot use it.
+# when a portal's URL rules are not supported or have changed.
 alerts:
-  - id: alquiler-norte
+  - id: norte-alquiler
     operation: rent
     delivery: digest
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }
-    price: { currency: ARS, max: 2000000 }
+    price: { currency: ARS, min: 1250000, max: 2000000 }
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
+
+  - id: norte-venta
+    operation: sale
+    delivery: digest
+    neighborhoods: [florida, olivos, saavedra]
+    property_types: [casa, ph, departamento]
+    rooms: { min: 3 }
+    price: { currency: USD, min: 150000, max: 200000 }
+    portals:
+      zonaprop: { max_pages: 20 }
+      argenprop: { max_pages: 20 }
+
+  # MercadoLibre uses pasted URLs, which cover one operation, one set of
+  # neighborhoods and one set of types. Houses in Florida only; other
+  # neighborhoods and types are not covered.
+  - id: norte-meli-alquiler
+    operation: rent
+    neighborhoods: [florida]
+    property_types: [casa]
+    rooms: { min: 3 }
+    price: { currency: ARS, min: 1250000, max: 2000000 }
+    portals:
       mercadolibre:
         max_pages: 4
-        # Houses in Florida only; other neighborhoods and types are not covered.
         urls:
           - https://inmuebles.mercadolibre.com.ar/casas/alquiler/bsas-gba-norte/vicente-lopez/florida/
