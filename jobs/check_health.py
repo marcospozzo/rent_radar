@@ -63,7 +63,7 @@ def _alert_db_unreachable(config: Config, exc: Exception) -> None:
         return
     sent = _send(
         config,
-        "Rent Radar: no se pudo chequear la salud",
+        "No se pudo chequear la salud",
         f"No se pudo conectar o consultar la base de datos:\n\n`{exc}`\n\n"
         "No hay forma de saber el estado real de los portales hasta que esto se resuelva.",
     )
@@ -78,7 +78,7 @@ def _alert_recovered(config: Config) -> None:
         return
     sent = _send(
         config,
-        "Rent Radar: la base volvió a responder",
+        "La base volvió a responder",
         "El chequeo de salud pudo volver a conectarse a la base de datos.",
     )
     if sent:
@@ -143,7 +143,7 @@ def _check(config: Config) -> int:
             detail = "nunca tuvo una corrida exitosa" if last_ok is None else f"hace {int(age_min)} min"
             sent = _send(
                 config,
-                f"Rent Radar: {fuente} sin datos nuevos",
+                f"{fuente} sin datos nuevos",
                 f"**{fuente}** lleva sin una corrida exitosa ({detail}; umbral: {threshold_min} min).\n\n"
                 "No vas a recibir alertas de este portal hasta que se recupere.",
             )
@@ -157,7 +157,7 @@ def _check(config: Config) -> int:
         elif not is_stale and already_alerted(cur, fuente):
             sent = _send(
                 config,
-                f"Rent Radar: {fuente} volvió a funcionar",
+                f"{fuente} volvió a funcionar",
                 f"**{fuente}** volvió a tener corridas exitosas.",
             )
             if sent:

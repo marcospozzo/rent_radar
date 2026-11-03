@@ -8,6 +8,9 @@ import apprise
 from app.searches import AppriseService, SearchConfigError
 
 
+SENDER_NAME = "Rent Radar"
+
+
 def _service_url(service: AppriseService) -> str:
     path = Path(service.url_file)
     name = service.label or str(path)
@@ -22,7 +25,9 @@ def _service_url(service: AppriseService) -> str:
 
 def build_notifier(services: list[AppriseService]) -> apprise.Apprise:
     """Fails with the service's name, never its URL: the URL holds a password."""
-    notifier = apprise.Apprise()
+    # Apprise names the sender after the app id, "Apprise" by default; a `name=`
+    # in the URL still takes precedence.
+    notifier = apprise.Apprise(asset=apprise.AppriseAsset(app_id=SENDER_NAME))
     for service in services:
         if not notifier.add(_service_url(service)):
             raise SearchConfigError(

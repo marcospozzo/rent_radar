@@ -74,12 +74,12 @@ def _block(listing: NewListing) -> str:
 
 def single_message(alert_id: str, listing: NewListing) -> tuple[str, str]:
     tag = _OPERATION_TAGS[listing.operation]
-    return f"{tag} Rent Radar · {alert_id}: {_short_title(listing.title)}", _block(listing)
+    return f"{tag} {alert_id}: {_short_title(listing.title)}", _block(listing)
 
 
 def digest_message(alert_id: str, operation: Operation, listings: list[NewListing]) -> tuple[str, str]:
     """One email for the new listings of one operation, which the subject states."""
     count = len(listings)
     noun = "publicación nueva" if count == 1 else "publicaciones nuevas"
-    title = f"{_OPERATION_TAGS[operation]} Rent Radar · {alert_id}: {count} {noun}"
+    title = f"{_OPERATION_TAGS[operation]} {alert_id}: {count} {noun}"
     return title, "\n\n".join(_block(listing) for listing in listings)
