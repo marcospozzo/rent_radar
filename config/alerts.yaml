@@ -42,7 +42,7 @@ alerts:
 
   - id: norte-venta
     operation: sale
-    min_garage: 1,
+    min_garage: 1
     delivery: digest
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
