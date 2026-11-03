@@ -42,11 +42,12 @@ alerts:
 
   - id: norte-venta
     operation: sale
+    min_garage: 1,
     delivery: digest
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }
-    price: { currency: USD, min: 150000, max: 200000 }
+    price: { currency: USD, min: 150000, max: 250000 }
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
