@@ -34,12 +34,26 @@ def _zonaprop_rooms_segment(search: Search) -> str:
     # "mas-de-N" means N or more; "desde-N" alone means exactly N. But "mas-de-N"
     # together with a price cap in dollars makes ZonaProp drop part of the
     # location: it lost Saavedra from a three-neighborhood search, and with
-    # Saavedra alone it searched all of Argentina. A cap in pesos is fine. Written
-    # as a range the dollar cap keeps every neighborhood, at the cost of
-    # listings with six or more rooms, which a range up to "5" does not return.
-    if search.price.max and search.price.currency == "USD" and rooms.min <= _ZONAPROP_TOP_ROOMS:
+    # Saavedra alone it searched all of Argentina. A minimum in dollars does the
+    # same, and prices in pesos are fine. Written as a range the dollar price keeps
+    # every neighborhood, at the cost of listings with six or more rooms, which a
+    # range up to "5" does not return.
+    has_dollar_price = search.price.currency == "USD" and (search.price.min or search.price.max)
+    if has_dollar_price and rooms.min <= _ZONAPROP_TOP_ROOMS:
         return f"desde-{rooms.min}-hasta-{_ZONAPROP_ROOMS_CEILING}-ambientes"
     return f"mas-de-{rooms.min}-ambientes"
+
+
+def _zonaprop_price_segment(search: Search) -> str | None:
+    price = search.price
+    currency = _CURRENCY_WORDS[price.currency]
+    if price.min and price.max:
+        return f"{price.min}-{price.max}-{currency}"
+    if price.min:
+        return f"mas-{price.min}-{currency}"
+    if price.max:
+        return f"menos-{price.max}-{currency}"
+    return None
 
 
 def build_zonaprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) -> str:
@@ -55,8 +69,9 @@ def build_zonaprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) -
         parts.append(f"mas-de-{search.min_garage}-garage")
     if search.min_area_m2:
         parts.append(f"mas-{search.min_area_m2}-m2-cubiertos")
-    if search.price.max:
-        parts.append(f"menos-{search.price.max}-{_CURRENCY_WORDS[search.price.currency]}")
+    price_segment = _zonaprop_price_segment(search)
+    if price_segment:
+        parts.append(price_segment)
     parts.append("orden-publicado-descendente")
     return f"https://www.zonaprop.com.ar/{'-'.join(parts)}.html"
 
@@ -71,6 +86,18 @@ def _argenprop_rooms_segment(search: Search) -> str:
     return "-o-".join(options)
 
 
+def _argenprop_price_segment(search: Search) -> str | None:
+    price = search.price
+    currency = _CURRENCY_WORDS[price.currency]
+    if price.min and price.max:
+        return f"{currency}-{price.min}-{price.max}"
+    if price.min:
+        return f"{currency}-desde-{price.min}"
+    if price.max:
+        return f"{currency}-hasta-{price.max}"
+    return None
+
+
 def build_argenprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) -> str:
     segments = [
         "-o-".join(_TYPE_WORDS[kind] for kind in _types_in_canonical_order(search)),
@@ -78,8 +105,9 @@ def build_argenprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) 
         "-o-".join(neighborhoods[key].argenprop for key in search.neighborhoods),
         _argenprop_rooms_segment(search),
     ]
-    if search.price.max:
-        segments.append(f"{_CURRENCY_WORDS[search.price.currency]}-hasta-{search.price.max}")
+    price_segment = _argenprop_price_segment(search)
+    if price_segment:
+        segments.append(price_segment)
     query = []
     if search.min_garage:
         # Checked only for one garage or more.

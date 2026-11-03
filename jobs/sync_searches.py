@@ -21,6 +21,7 @@ def _row(search: Search) -> tuple[object, ...]:
         search.operation.value,
         search.active,
         search.price.currency,
+        search.price.min,
         search.price.max,
         search.rooms.min,
         search.rooms.max,
@@ -42,13 +43,14 @@ def main() -> None:
                 cur,
                 """
                 INSERT INTO silver.busquedas
-                    (id_busqueda, operacion, activa, moneda, precio_max,
+                    (id_busqueda, operacion, activa, moneda, precio_min, precio_max,
                      ambientes_min, ambientes_max, cocheras_min, superficie_min_m2)
                 VALUES %s
                 ON CONFLICT (id_busqueda) DO UPDATE SET
                     operacion         = EXCLUDED.operacion,
                     activa            = EXCLUDED.activa,
                     moneda            = EXCLUDED.moneda,
+                    precio_min        = EXCLUDED.precio_min,
                     precio_max        = EXCLUDED.precio_max,
                     ambientes_min     = EXCLUDED.ambientes_min,
                     ambientes_max     = EXCLUDED.ambientes_max,

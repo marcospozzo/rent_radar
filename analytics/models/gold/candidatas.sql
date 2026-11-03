@@ -4,7 +4,8 @@
 -- y dejan pasar avisos en otra moneda.
 --
 -- Todo se compara en pesos. Las expensas vienen en pesos aunque el precio esté
--- en dólares.
+-- en dólares. El máximo cuenta las expensas; el mínimo compara el precio solo,
+-- porque es lo que el portal publica como precio.
 select
     p.*,
     b.id_busqueda
@@ -22,6 +23,11 @@ where (p.ambientes is null or p.ambientes >= b.ambientes_min)
   and (b.superficie_min_m2 is null
        or coalesce(p.superficie_cubierta, p.superficie_total) is null
        or coalesce(p.superficie_cubierta, p.superficie_total) >= b.superficie_min_m2)
+  and (
+      b.precio_min is null
+      or (case p.moneda when 'USD' then p.precio * {{ var('tipo_cambio_usd') }} else p.precio end)
+         >= case b.moneda when 'USD' then b.precio_min * {{ var('tipo_cambio_usd') }} else b.precio_min end
+  )
   and (
       b.precio_max is null
       or (case p.moneda when 'USD' then p.precio * {{ var('tipo_cambio_usd') }} else p.precio end

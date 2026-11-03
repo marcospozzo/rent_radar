@@ -49,7 +49,14 @@ class Rooms(_Strict):
 
 class Price(_Strict):
     currency: Literal["ARS", "USD"]
+    min: int | None = Field(default=None, gt=0)
     max: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _max_not_below_min(self) -> Price:
+        if self.min is not None and self.max is not None and self.max < self.min:
+            raise ValueError("price.max is lower than price.min")
+        return self
 
 
 class BothPrices(_Strict):
