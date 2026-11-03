@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from app.searches import Operation
 
 _PORTAL_NAMES = {"zonaprop": "ZonaProp", "argenprop": "ArgenProp", "mercadolibre": "MercadoLibre"}
-_OPERATION_HEADINGS = {Operation.RENT: "Alquiler", Operation.SALE: "Venta"}
+# First thing in every subject, so rent and sale tell apart in the inbox at a glance.
+_OPERATION_TAGS = {Operation.RENT: "[ALQUILER]", Operation.SALE: "[VENTA]"}
 _MAX_TITLE_LENGTH = 70
 
 
@@ -72,18 +73,13 @@ def _block(listing: NewListing) -> str:
 
 
 def single_message(alert_id: str, listing: NewListing) -> tuple[str, str]:
-    return f"Rent Radar · {alert_id}: {_short_title(listing.title)}", _block(listing)
+    tag = _OPERATION_TAGS[listing.operation]
+    return f"{tag} Rent Radar · {alert_id}: {_short_title(listing.title)}", _block(listing)
 
 
-def digest_message(alert_id: str, listings: list[NewListing]) -> tuple[str, str]:
+def digest_message(alert_id: str, operation: Operation, listings: list[NewListing]) -> tuple[str, str]:
+    """One email for the new listings of one operation, which the subject states."""
     count = len(listings)
     noun = "publicación nueva" if count == 1 else "publicaciones nuevas"
-    title = f"Rent Radar · {alert_id}: {count} {noun}"
-
-    operations = [op for op in _OPERATION_HEADINGS if any(item.operation is op for item in listings)]
-    sections = []
-    for operation in operations:
-        blocks = "\n\n".join(_block(item) for item in listings if item.operation is operation)
-        # A heading only helps when the alert covers both operations.
-        sections.append(f"## {_OPERATION_HEADINGS[operation]}\n\n{blocks}" if len(operations) > 1 else blocks)
-    return title, "\n\n".join(sections)
+    title = f"{_OPERATION_TAGS[operation]} Rent Radar · {alert_id}: {count} {noun}"
+    return title, "\n\n".join(_block(listing) for listing in listings)

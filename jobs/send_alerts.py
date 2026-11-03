@@ -108,27 +108,27 @@ def main() -> None:
             cur.execute(FETCH_PENDING)
             pending = cast(list[PendingRow], cur.fetchall())
 
-        # alert id -> [(key, listing)]. A pending row whose search left the
-        # config stays pending until the search comes back.
-        by_alert: dict[str, list[tuple[Key, NewListing]]] = {}
-        delivery: dict[str, Delivery] = {}
+        # search id -> [(key, listing)]. One email per search, so each says whether it
+        # is rent or sale even when an alert covers both. A pending row whose search
+        # left the config stays pending until the search comes back.
+        by_search: dict[str, list[tuple[Key, NewListing]]] = {}
         for row in pending:
             search = searches.get(row["id_busqueda"])
             if search is None:
                 continue
             key = (row["id_busqueda"], row["fuente"], row["id_publicacion"])
-            by_alert.setdefault(search.alert_id, []).append((key, _listing(row, search)))
-            delivery[search.alert_id] = search.delivery
+            by_search.setdefault(search.id, []).append((key, _listing(row, search)))
 
         emails = failures = 0
-        for alert_id, items in by_alert.items():
-            batches = [items] if delivery[alert_id] is Delivery.DIGEST else [[item] for item in items]
+        for search_id, items in by_search.items():
+            search = searches[search_id]
+            batches = [items] if search.delivery is Delivery.DIGEST else [[item] for item in items]
             for batch in batches:
                 listings = [listing for _, listing in batch]
                 title, body = (
-                    digest_message(alert_id, listings)
-                    if delivery[alert_id] is Delivery.DIGEST
-                    else single_message(alert_id, listings[0])
+                    digest_message(search.alert_id, search.operation, listings)
+                    if search.delivery is Delivery.DIGEST
+                    else single_message(search.alert_id, listings[0])
                 )
                 if send(notifier, title, body):
                     with conn, conn.cursor() as cur:
