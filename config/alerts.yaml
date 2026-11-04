@@ -45,7 +45,7 @@ alerts:
     min_garage: 1
     delivery: digest
     neighborhoods: [florida, olivos, saavedra]
-    property_types: [casa, ph, departamento]
+    property_types: [casa, ph]
     rooms: { min: 3 }
     price: { currency: USD, min: 150000, max: 250000 }
     portals:
