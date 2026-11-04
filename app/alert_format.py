@@ -43,6 +43,13 @@ def format_price(price: float | None, currency: str | None) -> str:
     return f"USD {amount}" if currency == "USD" else f"$ {amount}"
 
 
+def format_price_per_m2(listing: NewListing) -> str | None:
+    """None when the listing has no price or area to divide."""
+    if not listing.price or not listing.area_m2:
+        return None
+    return f"{format_price(listing.price / listing.area_m2, listing.currency)}/m²"
+
+
 def format_details(listing: NewListing) -> str:
     parts = []
     if listing.rooms is not None:
@@ -58,9 +65,14 @@ def format_details(listing: NewListing) -> str:
 
 def _block(listing: NewListing) -> str:
     per_month = "/mes" if listing.operation is Operation.RENT else ""
+    price_parts = [f"{format_price(listing.price, listing.currency)}{per_month}"]
+    price_per_m2 = format_price_per_m2(listing)
+    if price_per_m2:
+        price_parts.append(price_per_m2)
+    price_parts.append(_PORTAL_NAMES.get(listing.source, listing.source))
     lines = [
         f"**{_escape(_short_title(listing.title))}**",
-        f"{format_price(listing.price, listing.currency)}{per_month} · {_PORTAL_NAMES.get(listing.source, listing.source)}",
+        " · ".join(price_parts),
     ]
     if listing.location:
         lines.append(_escape(listing.location))
