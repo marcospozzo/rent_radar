@@ -1,8 +1,12 @@
+# Sample configuration. Copy it to alerts.yaml, which git ignores, and edit that
+# copy: it holds what you are looking for, which is personal.
+#
 # Where the alerts go. Each service points at a file holding one Apprise URL,
 # because the URL carries a password and must stay out of git. Keep it in this
 # folder as apprise-url.txt (git ignores it); the folder is mounted at /app/config.
 # For Gmail the file holds, on one line and without quotes:
 #   mailto://user:app-password@gmail.com?to=you@example.com
+# Several recipients go in `to=` separated by commas.
 apprise:
   services:
     - url_file: /app/config/apprise-url.txt
@@ -35,7 +39,7 @@ alerts:
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }
-    price: { currency: ARS, min: 1250000, max: 2000000 }
+    price: { currency: ARS, min: 1000000, max: 2000000 }
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
@@ -47,7 +51,7 @@ alerts:
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph]
     rooms: { min: 3 }
-    price: { currency: USD, min: 150000, max: 250000 }
+    price: { currency: USD, min: 100000, max: 200000 }
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
@@ -60,7 +64,7 @@ alerts:
     neighborhoods: [florida]
     property_types: [casa]
     rooms: { min: 3 }
-    price: { currency: ARS, min: 1250000, max: 2000000 }
+    price: { currency: ARS, min: 1000000, max: 2000000 }
     portals:
       mercadolibre:
         max_pages: 4

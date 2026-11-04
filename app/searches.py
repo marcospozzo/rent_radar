@@ -153,6 +153,12 @@ def load_config(
     alerts_path: Path = ALERTS_FILE,
     neighborhoods_path: Path = NEIGHBORHOODS_FILE,
 ) -> Config:
+    if not alerts_path.exists():
+        # alerts.yaml is personal and git ignores it, so a fresh clone has none.
+        raise SearchConfigError(
+            f"{alerts_path} does not exist: copy {alerts_path.with_name('alerts.example.yaml')} "
+            f"to {alerts_path} and edit it"
+        )
     try:
         parsed = _AlertsFile.model_validate(_read_yaml(alerts_path))
     except ValidationError as exc:

@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 config/apprise-url.txt
+config/alerts.yaml
 .git
 .claude
 venv

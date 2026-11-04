@@ -61,8 +61,9 @@ work calls for it.
   dropped by a migration, dbt does not do it.
 - Configuration lives in `config/`, mounted whole into the containers (a mounted
   single file goes stale when git or an editor replaces it): `alerts.yaml`
-  (alerts, Apprise services, health) and `neighborhoods.yaml` (each neighborhood
-  as the portals name it, only entries checked against the live portal).
+  (git-ignored; alerts, Apprise services, health; sample in
+  `alerts.example.yaml`) and `neighborhoods.yaml` (each neighborhood as the
+  portals name it, only entries checked against the live portal).
   Secrets: `.env` and `config/apprise-url.txt` (the Apprise URL), never the YAML.
 - Install: `docker compose build` · Dev: `docker compose up -d`; add
   `--profile dev` for Mailpit (http://127.0.0.1:8025), which catches the emails
@@ -91,9 +92,9 @@ work calls for it.
   `docker compose logs --tail 50 worker`, and
   `docker compose exec worker prefect deployment run 'rent-radar/cada_10min'` to
   run a cycle now. A local `docker compose up` still works if a change needs it.
-- The server's `config/alerts.yaml` has local edits (alert `norte`, rent and
-  sale), so a `git pull` that changes that file will conflict: bring the server's
-  version into the repo first.
+- `config/alerts.yaml` is personal and git ignores it; the repo carries
+  `config/alerts.example.yaml`. It is edited on the server (or copied there),
+  and the next cycle uses it with no pull, image or restart.
 - Done: Docker; searches defined in YAML, one operation (rent or sale) per alert; email alerts
   through Apprise (replacing Telegram and the map dashboard); deployed on the
   homelab, where the ZonaProp alerts are running.

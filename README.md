@@ -30,6 +30,7 @@ Requires Docker with Compose.
 
 ```bash
 cp .env.example .env     # set POSTGRES_PASSWORD (letters and digits only)
+cp config/alerts.example.yaml config/alerts.yaml    # then edit it (see Configuration)
 # put one Apprise URL in config/apprise-url.txt (see Configuration)
 docker compose up -d
 ```
@@ -58,12 +59,15 @@ Everything is bound to loopback. Three flows run on their own schedule
 Everything lives in the `config/` folder, which the containers mount whole. Every
 cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart.
 
-- **`config/alerts.yaml`** is the only file you edit. It has three parts:
+- **`config/alerts.yaml`** is the only file you edit. It holds what you look for,
+  which is personal, so git ignores it: start from `config/alerts.example.yaml`.
+  It has three parts:
   - `apprise.services`: where the alerts go. Each service points at a file
     holding one Apprise URL (`url_file`), because the URL carries a password
     and must stay out of git. Keep it in `config/apprise-url.txt` (git ignores
     it), on one line and without quotes. For Gmail it is
-    `mailto://user:app-password@gmail.com?to=you@example.com`.
+    `mailto://user:app-password@gmail.com?to=you@example.com`. Several
+    recipients go in `to=` separated by commas.
   - `health.enabled`: the email about portals that stop returning data.
   - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`
     or `sale`), a `delivery` (`digest` or `each`), `neighborhoods`,
@@ -115,6 +119,7 @@ sudo mkdir -p /opt/stacks/rent-radar && sudo chown "$USER":"$USER" /opt/stacks/r
 git clone https://github.com/marcospozzo/rent_radar.git /opt/stacks/rent-radar
 cd /opt/stacks/rent-radar
 cp .env.example .env
+cp config/alerts.example.yaml config/alerts.yaml    # then edit it
 # in .env set POSTGRES_PASSWORD, and uncomment RENT_RADAR_IMAGE (pin the tag if you
 # want), BIND_ADDRESS=0.0.0.0 and PUBLIC_HOST (the server's IP or name)
 # put the Apprise URL in config/apprise-url.txt, readable by the container user (uid 1000):
@@ -126,7 +131,8 @@ docker compose up -d
 
 - **Update:** `git pull && docker compose pull && docker compose up -d`.
   `migrate` applies new migrations and `prefect-deploy` registers the flows again.
-  A change that only touches `config/` needs just the `git pull`.
+  A change to `config/alerts.yaml` needs nothing at all: git ignores it, so edit
+  it on the server and the next cycle uses it.
 - **First cycles:** the alerts start in silence (each alert's existing listings
   are recorded, not emailed). A portal with no successful run yet, such as
   MercadoLibre before its first hourly run, or one that is blocked, sends one

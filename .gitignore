@@ -11,4 +11,5 @@ logs/
 nohup.out
 mockup.html
 config/apprise-url.txt
+config/alerts.yaml
 jobs/.check_health_db_unreachable
