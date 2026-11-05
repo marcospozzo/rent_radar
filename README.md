@@ -17,7 +17,9 @@ spiders -> raw.snapshots -> dbt -> gold.candidatas -> send_alerts -> email (Appr
    alert's own criteria (rooms, area, garage, price).
 3. A listing is new for an alert when it has not been seen before. The first
    listings of an alert on a portal are recorded without sending anything, so a
-   new alert does not email everything that already exists.
+   new alert does not email everything that already exists. That silence lasts
+   until a run of the alert on that portal has read everything it matches, which
+   takes several cycles on ArgenProp (see Known limitations).
 4. New listings are emailed through Apprise, one email per cycle (`digest`) or
    one per listing (`each`). A message is marked as sent only once Apprise
    accepted it; a failed one is retried on the next cycle.
@@ -144,9 +146,14 @@ docker compose up -d
 
 ## Known limitations
 
-- **ArgenProp** answers some clients with an AWS WAF challenge that the plain
-  HTTP spider cannot pass. The run is recorded as `empty` and the health alert
-  tells you.
+- **ArgenProp** answers a client past about twenty requests with an AWS WAF
+  challenge. A run is capped at 15 requests (`max_requests` in
+  `spiders/argenprop.py`, results pages and detail pages together) and asks for
+  the detail page of new listings only: it reuses what it stored about the ones
+  it has seen, and stops paging at the first page with nothing new. A search with
+  many unseen listings therefore takes several cycles to read them all; the
+  next run continues, and the alert stays silent until it has. A run that gets
+  nothing back at all is recorded as `empty` and the health alert tells you.
 - **ZonaProp with a price in dollars** (typically a sale alert, a `min` or a `max`)
   does not return listings with six or more rooms. Written as "N rooms or more", that price makes
   ZonaProp drop neighborhoods from the search, so the rooms go as a range up to 5.

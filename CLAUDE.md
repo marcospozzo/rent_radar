@@ -99,16 +99,15 @@ work calls for it.
   through Apprise (replacing Telegram and the map dashboard); deployed on the
   homelab, where the ZonaProp alerts are running.
 - Known state of the portals on the server: ZonaProp rent and sale work;
-  ArgenProp returns only the first page of a search and is cut off by its
-  rate limit (it asks for every listing's detail page each cycle); MercadoLibre
-  has not been looked at on the server yet.
+  ArgenProp now asks for the detail of new listings only, capped at 15 requests
+  per run (written and tested against a fake portal, not yet watched on the
+  server: check that its searches finish reading and that the cap is right);
+  MercadoLibre has not been looked at on the server yet.
 - Next, in order, one at a time:
-  1. ArgenProp: stop asking for the detail of every listing each cycle (only the
-     new ones) so the rate limit stops cutting it off and every page is read.
+  1. Watch ArgenProp on the server and tune `max_requests` if the WAF still cuts
+     it off.
   2. MercadoLibre: check its flow on the server, then a URL builder and sale
      listings.
-- Open decisions to settle with Marc before coding: how to cut the ArgenProp
-  requests (detail only for new listings, slower pacing, or a real browser).
 
 ## Git
 

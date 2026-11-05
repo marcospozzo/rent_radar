@@ -19,17 +19,32 @@ from app.alert_format import NewListing, digest_message, single_message
 from app.alerts import build_notifier, send
 from app.searches import Delivery, Search, SearchConfigError, load_config
 
-# EXISTS is evaluated against the snapshot taken before this statement, so every
-# listing of a search and portal that has no rows yet sees "no rows" and is
-# recorded as already sent: that is the silent baseline.
+# Listings of a search and portal whose baseline is not over yet are recorded as
+# already sent: that is the silent baseline.
 RECORD_CANDIDATES = """
     INSERT INTO silver.avisos (id_busqueda, fuente, id_publicacion, enviado_en)
     SELECT c.id_busqueda, c.fuente, c.id_publicacion,
            CASE WHEN EXISTS (
-                    SELECT 1 FROM silver.avisos a
-                    WHERE a.id_busqueda = c.id_busqueda AND a.fuente = c.fuente
+                    SELECT 1 FROM silver.lineas_base l
+                    WHERE l.id_busqueda = c.id_busqueda AND l.fuente = c.fuente
                 ) THEN NULL ELSE now() END
     FROM gold.candidatas c
+    ON CONFLICT DO NOTHING
+"""
+
+# Run after RECORD_CANDIDATES, so the cycle whose run finishes the baseline still
+# records its own listings silently: they are part of what already existed. Sending
+# starts with the next cycle.
+END_BASELINES = """
+    INSERT INTO silver.lineas_base (id_busqueda, fuente)
+    SELECT id_busqueda, fuente FROM (
+        SELECT DISTINCT ON (r.fuente, r.id_busqueda) r.id_busqueda, r.fuente, r.pendientes
+        FROM raw.pipeline_runs r
+        INNER JOIN silver.busquedas b ON b.id_busqueda = r.id_busqueda AND b.activa
+        WHERE r.estado = 'ok'
+        ORDER BY r.fuente, r.id_busqueda, r.finalizado_en DESC
+    ) latest
+    WHERE pendientes = 0
     ON CONFLICT DO NOTHING
 """
 
@@ -105,6 +120,7 @@ def main() -> None:
         with conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(RECORD_CANDIDATES)
             recorded = cur.rowcount
+            cur.execute(END_BASELINES)
             cur.execute(FETCH_PENDING)
             pending = cast(list[PendingRow], cur.fetchall())
 

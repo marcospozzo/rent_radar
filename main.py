@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 
 from app.db import ScraperDB
-from app.models import Listing, PipelineRun
+from app.models import PipelineRun
 from spiders import scrape_source
 
 logging.basicConfig(
@@ -30,10 +30,16 @@ def run_ingest(
 
 	try:
 		db.insert_run(run.to_run_row())
-		listings = scrape_source(
-			source=source, start_urls=start_urls, max_pages=max_pages, expected_names=expected_names,
+		# ArgenProp's detail pages are what its request limit runs out on, so it
+		# only asks for the ones it has not seen.
+		known = db.known_details(source) if source == "argenprop" else None
+		result = scrape_source(
+			source=source, start_urls=start_urls, max_pages=max_pages,
+			expected_names=expected_names, known=known,
+			stop_at_known=source == "argenprop" and db.last_run_was_complete(source, search_id),
 		)
-		snapshot_rows = [item.to_snapshot_row(run.run_id) for item in listings]
+		snapshot_rows = [item.to_snapshot_row(run.run_id) for item in result.listings]
+		run.deferred = result.deferred
 		db.insert_snapshots(snapshot_rows)
 
 		run.listings_found = len(snapshot_rows)

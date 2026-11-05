@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-from app.models import Listing
+from app.models import KnownDetail, Listing, ScrapeResult
 from spiders.headings import WrongSearchPageError, missing_names
 
 logger = logging.getLogger(__name__)
@@ -27,6 +27,10 @@ class SpiderConfig:
     max_pages: int = 3
     # Seconds before every request: the portals block clients that go too fast.
     request_delay: float = 2.0
+    # Requests per run, results pages and detail pages together. ArgenProp's AWS WAF
+    # starts answering with a challenge after about twenty, so a run reads what
+    # fits and leaves the rest for the next one.
+    max_requests: int = 15
 
 
 class ArgenpropSpider:
@@ -35,6 +39,9 @@ class ArgenpropSpider:
     def __init__(self, config: SpiderConfig | None = None, expected_names: list[str] | None = None):
         self.config = config or SpiderConfig()
         self.expected_names = expected_names or []
+        self._requests_left = self.config.max_requests
+        # Set when a results page was left unread, by the request budget or a block.
+        self._truncated = False
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -47,29 +54,95 @@ class ArgenpropSpider:
             }
         )
 
-    def scrape(self, start_urls: Iterable[str]) -> list[Listing]:
+    def scrape(
+        self,
+        start_urls: Iterable[str],
+        known: dict[str, KnownDetail] | None = None,
+        stop_at_known: bool = False,
+    ) -> ScrapeResult:
+        """`known` maps the listings already seen to their earlier detail, so only the
+        new ones cost a detail request. `stop_at_known` stops paging at the first page
+        with nothing new; it is only right when the earlier run saw everything, because
+        otherwise the listings still unread lie below the known ones."""
+        known = known or {}
         results: list[Listing] = []
+        deferred = 0
         for start_url in start_urls:
             logger.info("Iniciando scrape | url=%s", start_url)
             before = len(results)
-            for detail_url, seed in self._iter_detail_urls(start_url):
-                listing = self._parse_listing(detail_url, seed)
-                if listing is not None:
+            for cards in self._iter_pages(start_url):
+                unknown = 0
+                for detail_url, seed in cards:
+                    detail = known.get(str(seed["listing_id"]))
+                    if detail is not None:
+                        results.append(self._known_listing(detail_url, seed, detail))
+                        continue
+                    unknown += 1
+                    if self._requests_left == 0:
+                        deferred += 1
+                        continue
+                    listing = self._parse_listing(detail_url, seed)
+                    if listing is None:
+                        # Most likely the request limit: stop asking this run.
+                        deferred += 1
+                        self._requests_left = 0
+                        continue
                     results.append(listing)
                     print(f"\r  argenprop: {len(results)} publicaciones...", end="", flush=True)
-            logger.info("Scrape completado | url=%s | nuevas=%d", start_url, len(results) - before)
+                # With details left over, the pages past this one would only spend the
+                # requests those details need.
+                if deferred:
+                    self._truncated = True
+                    break
+                # Results come newest first: a page of listings already seen means
+                # nothing new lies further down.
+                if unknown == 0 and stop_at_known:
+                    break
+            logger.info("Scrape completado | url=%s | publicaciones=%d", start_url, len(results) - before)
         print()
+        pending = deferred + (1 if self._truncated and not deferred else 0)
+        if pending:
+            logger.info("Quedo sin leer para la proxima corrida | publicaciones=%d", pending)
         if not results:
             logger.warning("Se obtuvieron 0 publicaciones en total. Revisar selectores o bloqueo HTTP.")
-        return results
+        return ScrapeResult(results, pending)
 
-    def _iter_detail_urls(self, start_url: str) -> Iterable[tuple[str, dict[str, float | str | None]]]:
+    @staticmethod
+    def _known_listing(detail_url: str, seed: dict[str, float | str | None], detail: KnownDetail) -> Listing:
+        """A listing seen before: price, expenses and location are read again from the
+        results card, which is where they change; the rest comes from the earlier detail."""
+        return Listing(
+            source="argenprop",
+            listing_id=str(seed["listing_id"]),
+            url=detail_url,
+            title=detail.title,
+            price=ArgenpropSpider._as_float(seed.get("price")),
+            currency=ArgenpropSpider._as_str(seed.get("currency")),
+            expenses=ArgenpropSpider._as_float(seed.get("expenses")),
+            location=ArgenpropSpider._as_str(seed.get("location")),
+            latitude=detail.latitude,
+            longitude=detail.longitude,
+            rooms=detail.rooms,
+            bedrooms=detail.bedrooms,
+            bathrooms=detail.bathrooms,
+            surface_m2=detail.surface_m2,
+            published_at=detail.published_at,
+            seller=detail.seller,
+            specifications=detail.specifications,
+        )
+
+    def _iter_pages(self, start_url: str) -> Iterable[list[tuple[str, dict[str, float | str | None]]]]:
+        """The cards of each results page, one page at a time so the caller can stop early."""
         current_url = start_url
         current_page = 1
         for _ in range(self.config.max_pages):
+            if self._requests_left == 0:
+                self._truncated = True
+                return
             soup = self._get_soup(current_url)
             if soup is None:
                 logger.warning("No se pudo obtener pagina %d", current_page)
+                self._truncated = True
                 return
 
             if current_page == 1:
@@ -79,6 +152,7 @@ class ArgenpropSpider:
             if not cards:
                 logger.warning("Pagina %d: ningun selector matcheo publicaciones", current_page)
             logger.info("Pagina %d: %d publicaciones encontradas", current_page, len(cards))
+            page: list[tuple[str, dict[str, float | str | None]]] = []
             for card in cards:
                 link = card.select_one("a.card")
                 if link is None:
@@ -102,7 +176,8 @@ class ArgenpropSpider:
                     "expenses": self._clean_expenses(card.select_one("span.card__expenses").get_text(" ", strip=True) if card.select_one("span.card__expenses") else None),
                     "location": self._build_location(card),
                 }
-                yield full_url, seed_data
+                page.append((full_url, seed_data))
+            yield page
 
             next_page_url = self._resolve_next_page_url(soup, current_url, current_page)
             if not next_page_url:
@@ -198,11 +273,18 @@ class ArgenpropSpider:
 
     def _get_soup(self, url: str) -> BeautifulSoup | None:
         time.sleep(self.config.request_delay)
+        self._requests_left -= 1
         try:
             response = self.session.get(url, timeout=self.config.request_timeout)
             response.raise_for_status()
         except requests.RequestException as exc:
             logger.error("Error al pedir %s: %s", url, exc)
+            return None
+        if response.status_code == 202 or response.headers.get("x-amzn-waf-action") == "challenge":
+            # AWS WAF answers a client past its request limit with an empty 202. It is
+            # not an error to requests, and parsing it would give a listing with no
+            # title or data that later runs would take for a known one.
+            logger.warning("Argenprop devolvio el desafio anti-bot (limite de pedidos) | url=%s", url)
             return None
         logger.debug("HTTP %d | url=%s", response.status_code, url)
         return BeautifulSoup(response.text, "html.parser")
@@ -399,8 +481,12 @@ class ArgenpropSpider:
 
 
 def scrape_argenprop(
-    start_urls: Iterable[str], max_pages: int = 3, expected_names: list[str] | None = None
-) -> list[Listing]:
+    start_urls: Iterable[str],
+    max_pages: int = 3,
+    expected_names: list[str] | None = None,
+    known: dict[str, KnownDetail] | None = None,
+    stop_at_known: bool = False,
+) -> ScrapeResult:
     """Atajo funcional para obtener publicaciones de Argenprop."""
     spider = ArgenpropSpider(config=SpiderConfig(max_pages=max_pages), expected_names=expected_names)
-    return spider.scrape(start_urls)
+    return spider.scrape(start_urls, known, stop_at_known)

@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from dataclasses import dataclass
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -53,12 +55,38 @@ class Listing(BaseModel):
         }
 
 
+@dataclass(frozen=True, slots=True)
+class KnownDetail:
+    """What a listing's detail page gave on an earlier run, kept so a known listing
+    does not need that page again."""
+
+    title: str
+    latitude: float | None
+    longitude: float | None
+    rooms: int | None
+    bedrooms: int | None
+    bathrooms: int | None
+    surface_m2: int | None
+    published_at: datetime | None
+    seller: str | None
+    specifications: list[str]
+
+
+@dataclass(slots=True)
+class ScrapeResult:
+    listings: list[Listing]
+    # Listings the spider saw but could not complete this run (detail pages it left
+    # for a later run to stay under the portal's request limit).
+    deferred: int = 0
+
+
 class PipelineRun(BaseModel):
     source: str
     status: str = "running"
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     finished_at: datetime | None = None
     listings_found: int = 0
+    deferred: int = 0
     run_id: str = Field(default_factory=lambda: str(uuid4()))
     search_id: str | None = None
 
@@ -71,4 +99,5 @@ class PipelineRun(BaseModel):
             "iniciado_en": self.started_at,
             "finalizado_en": self.finished_at,
             "total_publicaciones": self.listings_found,
+            "pendientes": self.deferred,
         }
