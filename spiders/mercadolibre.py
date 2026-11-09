@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
 
-from app.models import Listing
+from app.models import KnownDetail, Listing
 
 logger = logging.getLogger(__name__)
 
@@ -73,24 +73,89 @@ class MercadoLibreSpider:
     def __exit__(self, *_: object) -> None:
         self.close()
 
-    def scrape(self, start_urls: Iterable[str]) -> list[Listing]:
+    def scrape(self, start_urls: Iterable[str], known: dict[str, KnownDetail] | None = None) -> list[Listing]:
+        """`known` maps the listings already seen to their earlier detail, so only the
+        new ones cost a detail page (seconds of anti-bot waiting each)."""
+        known = known or {}
         results: list[Listing] = []
         for start_url in start_urls:
             logger.info("Iniciando scrape | url=%s", start_url)
             before = len(results)
-            for detail_url in self._iter_detail_urls(start_url):
-                listing = self._parse_listing(detail_url)
+            reused = 0
+            for detail_url, card in self._iter_cards(start_url):
+                detail = known.get(self._extract_listing_id(detail_url))
+                listing = self._known_listing(detail_url, card, detail) if detail else None
+                if listing is not None:
+                    reused += 1
+                else:
+                    listing = self._parse_listing(detail_url)
                 if listing is not None:
                     results.append(listing)
                     print(f"\r  mercadolibre: {len(results)} publicaciones...", end="", flush=True)
-            logger.info("Scrape completado | url=%s | nuevas=%d", start_url, len(results) - before)
+            logger.info(
+                "Scrape completado | url=%s | publicaciones=%d | ya conocidas=%d",
+                start_url, len(results) - before, reused,
+            )
         print()
         if not results:
             logger.warning("Se obtuvieron 0 publicaciones en total. Revisar selectores o bloqueo HTTP.")
         return results
 
-    def _iter_detail_urls(self, start_url: str) -> Iterable[str]:
-        all_urls: list[str] = []
+    @staticmethod
+    def _known_listing(detail_url: str, card: dict[str, float | str | None], detail: KnownDetail) -> Listing | None:
+        """A listing seen before: price and location are read again from the results
+        card, where they change; the rest comes from the earlier detail. Without any
+        price the listing is read in full again (None), since an earlier run that
+        failed to find one would otherwise keep it unpriced for good."""
+        price = card["price"] if card["price"] is not None else detail.price
+        if price is None:
+            return None
+        has_card_price = card["price"] is not None
+        return Listing(
+            source="mercadolibre",
+            listing_id=MercadoLibreSpider._extract_listing_id(detail_url),
+            url=detail_url,
+            title=detail.title,
+            price=price,
+            currency=card["currency"] if has_card_price and card["currency"] else detail.currency,
+            expenses=detail.expenses,
+            location=card["location"] or detail.location,
+            latitude=detail.latitude,
+            longitude=detail.longitude,
+            rooms=detail.rooms,
+            bedrooms=detail.bedrooms,
+            bathrooms=detail.bathrooms,
+            surface_m2=detail.surface_m2,
+            published_at=detail.published_at,
+            seller=detail.seller,
+            specifications=detail.specifications,
+        )
+
+    @staticmethod
+    def _read_card(link: BeautifulSoup) -> dict[str, float | str | None]:
+        """Price and location from the results card a title link belongs to; None where
+        the card does not show them, and then the earlier detail's value is used."""
+        card = link.find_parent(class_="poly-card")
+        if card is None:
+            return {"price": None, "currency": None, "location": None}
+        # The card may also show a struck-through old price, which is not the price.
+        current = next(
+            (
+                amount for amount in card.select("div.poly-price__current span.andes-money-amount")
+                if "andes-money-amount--previous" not in amount.get("class", [])
+                and amount.find_parent(class_="andes-money-amount--previous") is None
+            ),
+            None,
+        )
+        return {
+            "price": MercadoLibreSpider._parse_price(MercadoLibreSpider._text(current, "span.andes-money-amount__fraction")) if current else None,
+            "currency": MercadoLibreSpider._parse_currency(MercadoLibreSpider._text(current, "span.andes-money-amount__currency-symbol")) if current else None,
+            "location": MercadoLibreSpider._text(card, "span.poly-component__location"),
+        }
+
+    def _iter_cards(self, start_url: str) -> list[tuple[str, dict[str, float | str | None]]]:
+        """Every listing's URL on the results pages, with what its card shows."""
+        all_cards: list[tuple[str, dict[str, float | str | None]]] = []
         soup = self._navigate_search(start_url)
         for page_num in range(1, self.config.max_pages + 1):
             if soup is None:
@@ -102,7 +167,7 @@ class MercadoLibreSpider:
                 href = node.get("href")
                 if href and href not in seen_links:
                     seen_links.add(href)
-                    all_urls.append(href)
+                    all_cards.append((href, self._read_card(node)))
 
             if not seen_links:
                 page_title = soup.find("title")
@@ -125,7 +190,7 @@ class MercadoLibreSpider:
 
             soup = self._click_next_page(page_num)
 
-        return all_urls
+        return all_cards
 
     def _click_next_page(self, page_num: int) -> BeautifulSoup | None:
         self._delay()
@@ -607,6 +672,10 @@ class MercadoLibreSpider:
         return None
 
 
-def scrape_mercadolibre(start_urls: Iterable[str], max_pages: int = 3) -> list[Listing]:
+def scrape_mercadolibre(
+    start_urls: Iterable[str],
+    max_pages: int = 3,
+    known: dict[str, KnownDetail] | None = None,
+) -> list[Listing]:
     with MercadoLibreSpider(config=SpiderConfig(max_pages=max_pages)) as spider:
-        return spider.scrape(start_urls)
+        return spider.scrape(start_urls, known)

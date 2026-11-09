@@ -30,9 +30,10 @@ def run_ingest(
 
 	try:
 		db.insert_run(run.to_run_row())
-		# ArgenProp's detail pages are what its request limit runs out on, so it
-		# only asks for the ones it has not seen.
-		known = db.known_details(source) if source == "argenprop" else None
+		# A detail page is the expensive request (ArgenProp's limit runs out on them,
+		# MercadoLibre waits seconds between them), so these portals only ask for the
+		# ones they have not seen.
+		known = db.known_details(source) if source in ("argenprop", "mercadolibre") else None
 		result = scrape_source(
 			source=source, start_urls=start_urls, max_pages=max_pages,
 			expected_names=expected_names, known=known,

@@ -52,7 +52,8 @@ class ScraperDB:
                 """
                 SELECT DISTINCT ON (id_publicacion)
                     id_publicacion, titulo, latitud, longitud, ambientes, dormitorios,
-                    banos, superficie_m2, publicado_en, vendedor, especificaciones
+                    banos, superficie_m2, publicado_en, vendedor, especificaciones,
+                    precio, moneda, expensas, ubicacion
                 FROM raw.snapshots
                 WHERE fuente = %s
                 ORDER BY id_publicacion, fecha_scraping DESC
@@ -64,6 +65,7 @@ class ScraperDB:
                     title=row[1], latitude=row[2], longitude=row[3], rooms=row[4],
                     bedrooms=row[5], bathrooms=row[6], surface_m2=row[7],
                     published_at=row[8], seller=row[9], specifications=list(row[10] or []),
+                    price=row[11], currency=row[12], expenses=row[13], location=row[14],
                 )
                 for row in cur.fetchall()
             }

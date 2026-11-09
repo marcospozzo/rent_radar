@@ -58,7 +58,8 @@ class Listing(BaseModel):
 @dataclass(frozen=True, slots=True)
 class KnownDetail:
     """What a listing's detail page gave on an earlier run, kept so a known listing
-    does not need that page again."""
+    does not need that page again. Price, currency, expenses and location are the
+    last values seen, for a portal whose results page does not show them."""
 
     title: str
     latitude: float | None
@@ -70,6 +71,10 @@ class KnownDetail:
     published_at: datetime | None
     seller: str | None
     specifications: list[str]
+    price: int | None
+    currency: str | None
+    expenses: int | None
+    location: str | None
 
 
 @dataclass(slots=True)

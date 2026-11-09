@@ -10,7 +10,7 @@ ScraperFunc = Callable[..., ScrapeResult]
 
 
 def _complete(scraper: Callable[..., list[Listing]]) -> ScraperFunc:
-	"""Spiders that always read every listing in full have nothing deferred."""
+	"""Spiders that read every listing they ask for have nothing deferred."""
 	def scrape(*args, **kwargs) -> ScrapeResult:
 		return ScrapeResult(scraper(*args, **kwargs))
 	return scrape
@@ -35,8 +35,9 @@ def scrape_source(
 
 	`expected_names` solo lo entienden los spiders con constructor de URL (zonaprop,
 	argenprop): verifican que la pagina de resultados nombre esos barrios.
-	`known` y `stop_at_known` solo los entiende argenprop: no pide el detalle de lo que ya
-	conoce, y con `stop_at_known` deja de paginar en la primera pagina sin nada nuevo.
+	`known` lo entienden argenprop y mercadolibre: no piden el detalle de lo que ya conocen.
+	`stop_at_known` solo argenprop: deja de paginar en la primera pagina sin nada nuevo
+	(mercadolibre no ordena por fecha, asi que no puede cortar).
 	"""
 	normalized = source.strip().lower()
 
@@ -50,7 +51,8 @@ def scrape_source(
 		options["expected_names"] = expected_names
 	if known is not None:
 		options["known"] = known
-		options["stop_at_known"] = stop_at_known
+		if stop_at_known:
+			options["stop_at_known"] = True
 	return scraper_func(start_urls, max_pages=max_pages, **options)
 
 
