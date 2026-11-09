@@ -164,12 +164,15 @@ class MercadoLibreSpider:
         if not self._text(soup, "h1.ui-pdp-title"):
             logger.debug("Titulo encontrado con selector alternativo | url=%s | title=%s", detail_url, title)
 
-        price = self._parse_price(
-            self._text(soup, "span[data-testid='price-part'] span.andes-money-amount__fraction")
-        )
-        currency = self._parse_currency(
-            self._text(soup, "span[data-testid='price-part'] span.andes-money-amount__currency-symbol")
-        )
+        price, currency = self._extract_price(soup)
+        if price is None:
+            logger.warning(
+                "Precio no encontrado | url=%s | montos=%d | meta_price=%s | jsonld=%d",
+                detail_url,
+                len(soup.select("span.andes-money-amount")),
+                soup.select_one("meta[itemprop='price']") is not None,
+                len(soup.find_all("script", type="application/ld+json")),
+            )
 
         lat, lon = self._extract_coordinates(soup)
         rooms = self._extract_numeric_feature(soup, r"(\d+(?:[\.,]\d+)?)\s*amb") or self._extract_from_specs_table(soup, "ambiente")
@@ -326,6 +329,61 @@ class MercadoLibreSpider:
             return None
         normalized = re.sub(r"[^\d]", "", price_text)
         return float(normalized) if normalized else None
+
+    @staticmethod
+    def _extract_price(soup: BeautifulSoup) -> tuple[float | None, str | None]:
+        """The price the page shows, from the first place that has it. The visible
+        markup changes often; the structured data (JSON-LD, meta tags) changes less,
+        so it backs the visible price up."""
+        visible_selectors = (
+            "span[data-testid='price-part']",
+            "div.ui-pdp-price__second-line",
+        )
+        for selector in visible_selectors:
+            fraction = MercadoLibreSpider._text(soup, f"{selector} span.andes-money-amount__fraction")
+            if fraction:
+                symbol = MercadoLibreSpider._text(soup, f"{selector} span.andes-money-amount__currency-symbol")
+                return MercadoLibreSpider._parse_price(fraction), MercadoLibreSpider._parse_currency(symbol)
+
+        for offer in MercadoLibreSpider._jsonld_offers(soup):
+            price = MercadoLibreSpider._structured_price(offer.get("price"))
+            if price is not None:
+                return price, MercadoLibreSpider._structured_currency(offer.get("priceCurrency"))
+
+        meta_price = soup.select_one("meta[itemprop='price']")
+        price = MercadoLibreSpider._structured_price(meta_price.get("content") if meta_price else None)
+        if price is not None:
+            meta_currency = soup.select_one("meta[itemprop='priceCurrency']")
+            return price, MercadoLibreSpider._structured_currency(meta_currency.get("content") if meta_currency else None)
+        return None, None
+
+    @staticmethod
+    def _jsonld_offers(soup: BeautifulSoup) -> list[dict]:
+        offers: list[dict] = []
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(script.string or "")
+            except ValueError:
+                continue
+            for item in data if isinstance(data, list) else [data]:
+                found = item.get("offers") if isinstance(item, dict) else None
+                offers.extend(entry for entry in (found if isinstance(found, list) else [found]) if isinstance(entry, dict))
+        return offers
+
+    @staticmethod
+    def _structured_price(value: object) -> float | None:
+        # Structured prices are plain numbers ("1500000" or "1500000.00"), not the
+        # thousands-separated text of the page, so they are not run through _parse_price.
+        try:
+            price = float(str(value))
+        except ValueError:
+            return None
+        return price if price > 0 else None
+
+    @staticmethod
+    def _structured_currency(value: object) -> str | None:
+        code = str(value or "").strip().upper()
+        return code if code in ("ARS", "USD") else None
 
     @staticmethod
     def _parse_currency(currency_symbol: str | None) -> str | None:
