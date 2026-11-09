@@ -16,3 +16,10 @@ saavedra:                        # CABA
   name: Saavedra
   zonaprop: saavedra
   argenprop: saavedra
+coghlan:                         # CABA
+  name: Coghlan
+  zonaprop: coghlan
+  # Not checked on the live portal: ArgenProp was blocking every request when this
+  # was added. It follows the pattern of the other entries; if it is wrong, the
+  # heading check fails the ArgenProp run instead of searching somewhere else.
+  argenprop: coghlan
