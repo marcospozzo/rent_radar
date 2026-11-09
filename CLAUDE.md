@@ -102,14 +102,15 @@ work calls for it.
   ArgenProp now asks for the detail of new listings only, capped at 15 requests
   per run (written and tested against a fake portal, not yet watched on the
   server: check that its searches finish reading and that the cap is right);
-  MercadoLibre never produced a price on the server (every run `EMPTY`); its
-  price reading was widened and a URL builder written from URLs Marc copied, both
-  untested against the live portal, and it still opens every listing's detail.
+  MercadoLibre reads prices on the server now (45 of 45 in the first runs) and its
+  generated URLs work for GBA; the CABA ones (Saavedra, Coghlan) answer HTTP 404
+  yet render their results (the spider now reads them; Coghlan casas answered 400). It asks for the detail of new listings only (written
+  and tested against fake card markup, not yet watched on the server: check that
+  the second run is fast and that prices still update from the results cards).
 - Next, in order, one at a time:
   1. Watch ArgenProp on the server and tune `max_requests` if the WAF still cuts
      it off.
-  2. MercadoLibre: check its flow on the server, then ask for the detail of new
-     listings only, as ArgenProp does.
+  2. MercadoLibre: confirm the CABA URLs now yield listings, and confirm on the server that known listings are reused.
 
 ## Git
 

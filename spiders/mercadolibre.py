@@ -349,7 +349,9 @@ class MercadoLibreSpider:
         logger.info("Cargando pagina de busqueda...")
         try:
             resp = self._page.goto(url, timeout=self.config.request_timeout * 1000, wait_until="domcontentloaded")
-            if resp and resp.status >= 400:
+            # The CABA URLs answer 404 and still render their results, with a banner
+            # saying the place name was not found; any other error has no results.
+            if resp and resp.status >= 400 and resp.status != 404:
                 logger.error("HTTP %d al pedir %s", resp.status, url)
                 return None
             logger.info("Pagina cargada (HTTP %d), esperando publicaciones...", resp.status if resp else 0)
