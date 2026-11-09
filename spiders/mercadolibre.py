@@ -163,11 +163,22 @@ class MercadoLibreSpider:
                 break
 
             seen_links: set[str] = set()
+            sponsored = 0
             for node in soup.select("a.poly-component__title"):
                 href = node.get("href")
-                if href and href not in seen_links:
-                    seen_links.add(href)
-                    all_cards.append((href, self._read_card(node)))
+                if not href or href in seen_links:
+                    continue
+                seen_links.add(href)
+                # Sponsored results link to a click-tracking URL whose token changes on
+                # every load and that carries no listing id, so the same ad would be
+                # taken for a new listing, and alerted, each cycle. They are also not
+                # bound to the search's filters.
+                if not MELI_LISTING_ID_PATTERN.search(href):
+                    sponsored += 1
+                    continue
+                all_cards.append((href, self._read_card(node)))
+            if sponsored:
+                logger.info("Pagina %d: %d publicaciones patrocinadas ignoradas", page_num, sponsored)
 
             if not seen_links:
                 page_title = soup.find("title")
