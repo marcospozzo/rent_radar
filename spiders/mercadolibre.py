@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 
 MELI_LISTING_ID_PATTERN = re.compile(r"MLA-(\d+)")
 _LOGIN_GATE_KEYWORDS = ("ingresa a tu cuenta", "inicia sesión", "inicia sesion")
+# The first load of a page sometimes answers with an error page (a code such as
+# SCH04-... and a "Reintentar" button) that loading again gets past.
+_MAX_ERROR_RELOADS = 2
 
 _UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -231,6 +234,28 @@ class MercadoLibreSpider:
             pass
 
     @staticmethod
+    def _is_error_page(soup: BeautifulSoup) -> bool:
+        """The page with a "Reintentar" button that stands in for a listing or results page."""
+        if soup.find("h1") or soup.select_one("a.poly-component__title"):
+            return False
+        return "reintentar" in soup.get_text(" ", strip=True).lower()
+
+    def _reload_past_error_page(self, soup: BeautifulSoup, ready_selector: str) -> BeautifulSoup:
+        for attempt in range(1, _MAX_ERROR_RELOADS + 1):
+            if not self._is_error_page(soup):
+                break
+            logger.warning("Pagina de error de MercadoLibre, recargando (intento %d) | url=%s", attempt, self._page.url)
+            self._delay()
+            self._page.reload(timeout=self.config.request_timeout * 1000, wait_until="domcontentloaded")
+            self._dismiss_cookie_banner()
+            try:
+                self._page.wait_for_selector(ready_selector, timeout=15_000)
+            except Exception:
+                self._page.wait_for_timeout(3_000)
+            soup = BeautifulSoup(self._page.content(), "html.parser")
+        return soup
+
+    @staticmethod
     def _is_login_gate(soup: BeautifulSoup) -> bool:
         """Detecta la pagina de 'ingresa a tu cuenta' que reemplaza los resultados de busqueda."""
         text = soup.get_text(" ", strip=True).lower()
@@ -269,7 +294,9 @@ class MercadoLibreSpider:
             except Exception:
                 logger.debug("wait_for_selector timeout, usando espera fija")
                 self._page.wait_for_timeout(3_000)
-            soup = BeautifulSoup(self._page.content(), "html.parser")
+            soup = self._reload_past_error_page(
+                BeautifulSoup(self._page.content(), "html.parser"), "a.poly-component__title"
+            )
 
             if not soup.select_one("a.poly-component__title") and self._is_login_gate(soup):
                 if _retry < 2:
@@ -304,7 +331,7 @@ class MercadoLibreSpider:
                 self._page.wait_for_selector("h1", timeout=8_000)
             except Exception:
                 self._page.wait_for_timeout(random.randint(800, 1800))
-            soup = BeautifulSoup(self._page.content(), "html.parser")
+            soup = self._reload_past_error_page(BeautifulSoup(self._page.content(), "html.parser"), "h1")
             if self._is_blocked(soup):
                 logger.warning("Pagina bloqueada detectada, rotando contexto | url=%s", url)
                 self._restart_context()
