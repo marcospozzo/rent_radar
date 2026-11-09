@@ -19,6 +19,9 @@ from typing import get_args
 from app.searches import Portal, SearchConfigError, load_config, load_neighborhoods
 from spiders.urls import build_portal_urls
 
+# Portals whose results page heading is checked against the neighborhoods asked for.
+HEADING_CHECKED_PORTALS = ("zonaprop", "argenprop")
+
 INACTIVITY_TIMEOUT = 120  # segundos sin output → proceso colgado
 
 
@@ -42,7 +45,7 @@ def build_jobs(only_portal: str | None) -> list[IngestJob]:
         for portal, portal_config in search.portals.items():
             if only_portal and portal != only_portal:
                 continue
-            generated = not portal_config.urls
+            generated = not portal_config.urls and portal in HEADING_CHECKED_PORTALS
             jobs.append(
                 IngestJob(
                     portal=portal,

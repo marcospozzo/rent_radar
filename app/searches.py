@@ -95,6 +95,7 @@ class Neighborhood(_Strict):
     name: str
     zonaprop: str
     argenprop: str
+    mercadolibre: str
 
 
 class AppriseService(_Strict):

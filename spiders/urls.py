@@ -8,12 +8,13 @@ therefore check the heading of the first results page before trusting it.
 """
 from __future__ import annotations
 
-from app.searches import Neighborhood, Operation, Portal, Search, SearchConfigError
+from app.searches import Neighborhood, Operation, Portal, Search
 
 _PROPERTY_TYPE_ORDER = ("casa", "departamento", "ph")
 _TYPE_WORDS = {"casa": "casas", "departamento": "departamentos", "ph": "ph"}
 _OPERATION_WORDS = {Operation.RENT: "alquiler", Operation.SALE: "venta"}
 _CURRENCY_WORDS = {"ARS": "pesos", "USD": "dolares"}
+_MERCADOLIBRE_TYPE_WORDS = {"casa": "casas", "departamento": "departamentos", "ph": "ph"}
 
 # ArgenProp has no room count above "5 or more".
 _ARGENPROP_TOP_ROOMS = 5
@@ -116,6 +117,43 @@ def build_argenprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) 
     return f"https://www.argenprop.com/{'/'.join(segments)}?{'&'.join(query)}"
 
 
+def _mercadolibre_filters(search: Search) -> str:
+    # Filters are appended to the place as "_Name_value". Underscores inside a
+    # filter's own name are written "*". The order is the one MercadoLibre itself
+    # produces when the filters are applied in its page. No sort order is asked for:
+    # "newest first" (_OrderId_AUCTION*STOP) made the CABA URLs fail.
+    filters: list[str] = []
+    price = search.price
+    # A minimum alone has no form that was checked, so it is left to dbt.
+    if price.max:
+        filters.append(f"_PriceRange_{price.min or 0}{price.currency}-{price.max}{price.currency}")
+    # Every URL copied from the page with more than one facet applied has this, and
+    # the type and the place already are two; the CABA ones always do.
+    filters.append("_NoIndex_True")
+    if search.min_garage:
+        filters.append(f"_PARKING*LOTS_{search.min_garage}-*")
+    if search.min_area_m2:
+        # MercadoLibre filters by total area; the covered area is never larger, so
+        # this never drops a listing that dbt would keep.
+        filters.append(f"_TOTAL*AREA_{search.min_area_m2}m%C2%B2-*")
+    return "".join(filters)
+
+
+def build_mercadolibre_urls(search: Search, neighborhoods: dict[str, Neighborhood]) -> list[str]:
+    """A MercadoLibre search covers one property type in one place, so a search is
+    one URL for each type and neighborhood."""
+    # "mas-de-N-ambientes" means N or more; a maximum is left to dbt. One room or
+    # more is every listing, so it needs no filter.
+    rooms = f"mas-de-{search.rooms.min}-ambientes/" if search.rooms.min > 1 else ""
+    filters = _mercadolibre_filters(search)
+    return [
+        f"https://inmuebles.mercadolibre.com.ar/{_MERCADOLIBRE_TYPE_WORDS[kind]}/"
+        f"{_OPERATION_WORDS[search.operation]}/{rooms}{neighborhoods[key].mercadolibre}{filters}"
+        for key in search.neighborhoods
+        for kind in _types_in_canonical_order(search)
+    ]
+
+
 def build_portal_urls(portal: Portal, search: Search, neighborhoods: dict[str, Neighborhood]) -> list[str]:
     """URLs to scrape for one portal: the ones written in the search, else generated."""
     configured = search.portals[portal].urls
@@ -125,7 +163,4 @@ def build_portal_urls(portal: Portal, search: Search, neighborhoods: dict[str, N
         return [build_zonaprop_url(search, neighborhoods)]
     if portal == "argenprop":
         return [build_argenprop_url(search, neighborhoods)]
-    raise SearchConfigError(
-        f"Search '{search.id}': {portal} has no URL builder yet; "
-        f"set portals.{portal}.urls in alerts.yaml"
-    )
+    return build_mercadolibre_urls(search, neighborhoods)

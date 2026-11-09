@@ -10,9 +10,9 @@ Aires. It has no UI of its own: everything is configured in `config/alerts.yaml`
 spiders -> raw.snapshots -> dbt -> gold.candidatas -> send_alerts -> email (Apprise)
 ```
 
-1. Every cycle the spiders scrape the searches in `config/alerts.yaml`. ZonaProp and
-   ArgenProp URLs are generated from each alert; MercadoLibre takes the URLs
-   written in the file.
+1. Every cycle the spiders scrape the searches in `config/alerts.yaml`. The URLs
+   of the three portals are generated from each alert, unless the alert writes
+   its own.
 2. dbt cleans and deduplicates the listings and keeps those that meet each
    alert's own criteria (rooms, area, garage, price).
 3. A listing is new for an alert when it has not been seen before. The first
@@ -158,8 +158,14 @@ docker compose up -d
   does not return listings with six or more rooms. Written as "N rooms or more", that price makes
   ZonaProp drop neighborhoods from the search, so the rooms go as a range up to 5.
   A price in pesos does not have this problem.
-- **MercadoLibre** has no URL builder: it needs `urls` in the alert, and a
-  pasted URL covers one operation and one set of neighborhoods.
+- **MercadoLibre** covers one property type in one place per URL, so an alert is
+  one URL for each type and neighborhood, and a run takes a long time: it opens
+  every listing in a browser with pauses between them. Its URLs were written from
+  examples copied out of its page and have not run against the live portal; a
+  maximum number of rooms and a minimum price without a maximum are left to dbt,
+  because no URL form for them was checked. A wrong URL searches somewhere else
+  and the results page is not checked against the neighborhoods, as ZonaProp's
+  and ArgenProp's are.
 - Only **new listings** are alerted: no price changes, no listings that went
   off the market.
 - The same property on two portals is only recognised as one when both listings

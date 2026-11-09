@@ -102,12 +102,14 @@ work calls for it.
   ArgenProp now asks for the detail of new listings only, capped at 15 requests
   per run (written and tested against a fake portal, not yet watched on the
   server: check that its searches finish reading and that the cap is right);
-  MercadoLibre has not been looked at on the server yet.
+  MercadoLibre never produced a price on the server (every run `EMPTY`); its
+  price reading was widened and a URL builder written from URLs Marc copied, both
+  untested against the live portal, and it still opens every listing's detail.
 - Next, in order, one at a time:
   1. Watch ArgenProp on the server and tune `max_requests` if the WAF still cuts
      it off.
-  2. MercadoLibre: check its flow on the server, then a URL builder and sale
-     listings.
+  2. MercadoLibre: check its flow on the server, then ask for the detail of new
+     listings only, as ArgenProp does.
 
 ## Git
 

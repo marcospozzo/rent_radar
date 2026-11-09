@@ -43,6 +43,7 @@ alerts:
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
+      mercadolibre: { max_pages: 20 }
 
   - id: norte-venta
     operation: sale
@@ -55,18 +56,4 @@ alerts:
     portals:
       zonaprop: { max_pages: 20 }
       argenprop: { max_pages: 20 }
-
-  # MercadoLibre uses pasted URLs, which cover one operation, one set of
-  # neighborhoods and one set of types. Houses in Florida only; other
-  # neighborhoods and types are not covered.
-  - id: norte-meli-alquiler
-    operation: rent
-    neighborhoods: [florida]
-    property_types: [casa]
-    rooms: { min: 3 }
-    price: { currency: ARS, min: 1000000, max: 2000000 }
-    portals:
-      mercadolibre:
-        max_pages: 4
-        urls:
-          - https://inmuebles.mercadolibre.com.ar/casas/alquiler/bsas-gba-norte/vicente-lopez/florida/
+      mercadolibre: { max_pages: 20 }
