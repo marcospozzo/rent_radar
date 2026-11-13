@@ -33,3 +33,12 @@ coghlan:                         # CABA
   argenprop: coghlan
   mercadolibre: capital-federal/coghlan/capital-federal-tuxbqknprzy5mtza
   mashogares: Ciudad Autónoma de Buenos Aires
+villa-santa-rita:                # CABA
+  name: Villa Santa Rita
+  zonaprop: villa-santa-rita
+  # Not checked on the live portal: ArgenProp was blocking every request when this
+  # was added. If it is wrong, the heading check fails the ArgenProp run instead
+  # of searching somewhere else.
+  argenprop: villa-santa-rita
+  mercadolibre: capital-federal/villa-santa-rita/capital-federal-tuxbqknprzy5mtza
+  mashogares: Ciudad Autónoma de Buenos Aires
