@@ -9,17 +9,21 @@ florida:                         # Vicente López
   zonaprop: florida              # not florida-vicente-lopez: that is the whole partido
   argenprop: florida
   mercadolibre: bsas-gba-norte/vicente-lopez/florida/
+  mashogares: Buenos Aires       # also returns Florida Oeste and Villa La Florida; the spider drops them
 olivos:                          # Vicente López
   name: Olivos
   zonaprop: olivos
   argenprop: olivos
   mercadolibre: bsas-gba-norte/vicente-lopez/olivos/
+  mashogares: Buenos Aires
 saavedra:                        # CABA
   name: Saavedra
   zonaprop: saavedra
   argenprop: saavedra
   # The CABA places end in a code that MercadoLibre gives to the whole city.
   mercadolibre: capital-federal/saavedra/capital-federal-tuxbqknprzy5mtza
+  # Not "Buenos Aires": that province has its own, unrelated Saavedra.
+  mashogares: Ciudad Autónoma de Buenos Aires
 coghlan:                         # CABA
   name: Coghlan
   zonaprop: coghlan
@@ -28,3 +32,4 @@ coghlan:                         # CABA
   # heading check fails the ArgenProp run instead of searching somewhere else.
   argenprop: coghlan
   mercadolibre: capital-federal/coghlan/capital-federal-tuxbqknprzy5mtza
+  mashogares: Ciudad Autónoma de Buenos Aires

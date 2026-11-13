@@ -1,7 +1,7 @@
 # Rent Radar
 
 Personal tool that emails Marc when a new rent or sale listing matching what he
-is looking for appears on ZonaProp, ArgenProp or MercadoLibre in Buenos Aires /
+is looking for appears on ZonaProp, ArgenProp, MercadoLibre or Más Hogares BNA in Buenos Aires /
 Gran Buenos Aires. It has no UI: everything is configured in `config/alerts.yaml`.
 Hard fork of [rent_radar](https://github.com/NotoFederico/rent_radar) (license:
 MIT), forked at upstream commit 608f241877fdf6516ee161833eaa8b6de373695b.
@@ -107,6 +107,9 @@ work calls for it.
   yet render their results (the spider now reads them; Coghlan casas answered 400). It asks for the detail of new listings only (written
   and tested against fake card markup, not yet watched on the server: check that
   the second run is fast and that prices still update from the results cards).
+  Más Hogares BNA (`mashogares`, sale only) reads a JSON API with no browser; tested
+  live from the Mac end to end against the local database and Mailpit, not yet
+  watched on the server.
 - Next, in order, one at a time:
   1. Watch ArgenProp on the server and tune `max_requests` if the WAF still cuts
      it off.

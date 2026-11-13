@@ -14,7 +14,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 ALERTS_FILE = Path(os.environ.get("ALERTS_FILE", "config/alerts.yaml"))
 NEIGHBORHOODS_FILE = Path(os.environ.get("NEIGHBORHOODS_FILE", "config/neighborhoods.yaml"))
 
-Portal = Literal["zonaprop", "argenprop", "mercadolibre"]
+Portal = Literal["zonaprop", "argenprop", "mercadolibre", "mashogares"]
+# Portals that only list properties for sale: a rent alert skips them.
+SALE_ONLY_PORTALS: frozenset[str] = frozenset({"mashogares"})
 PropertyType = Literal["casa", "departamento", "ph"]
 
 # Deliberately loose: enough to catch a typo or a comma, not a full RFC 5322 check
@@ -108,6 +110,9 @@ class Neighborhood(_Strict):
     zonaprop: str
     argenprop: str
     mercadolibre: str
+    # The province as Más Hogares BNA writes it. Its search matches the place by
+    # province and locality name, and `name` above is the locality.
+    mashogares: str
 
 
 class AppriseService(_Strict):

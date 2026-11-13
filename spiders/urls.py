@@ -8,6 +8,9 @@ therefore check the heading of the first results page before trusting it.
 """
 from __future__ import annotations
 
+import json
+from urllib.parse import urlencode
+
 from app.searches import Neighborhood, Operation, Portal, Search
 
 _PROPERTY_TYPE_ORDER = ("casa", "departamento", "ph")
@@ -15,6 +18,9 @@ _TYPE_WORDS = {"casa": "casas", "departamento": "departamentos", "ph": "ph"}
 _OPERATION_WORDS = {Operation.RENT: "alquiler", Operation.SALE: "venta"}
 _CURRENCY_WORDS = {"ARS": "pesos", "USD": "dolares"}
 _MERCADOLIBRE_TYPE_WORDS = {"casa": "casas", "departamento": "departamentos", "ph": "ph"}
+_MASHOGARES_TYPE_WORDS = {"casa": "Casa", "departamento": "Departamento", "ph": "PH"}
+_MASHOGARES_API = "https://mashogaresconbna.com.ar/api/propiedades"
+_MASHOGARES_PAGE_SIZE = 50
 
 # ArgenProp has no room count above "5 or more".
 _ARGENPROP_TOP_ROOMS = 5
@@ -154,10 +160,36 @@ def build_mercadolibre_urls(search: Search, neighborhoods: dict[str, Neighborhoo
     ]
 
 
+def build_mashogares_urls(search: Search, neighborhoods: dict[str, Neighborhood]) -> list[str]:
+    """One URL per property type: the API keeps only the last of a filter given twice,
+    so several types cannot go in one. Rooms and price are left to dbt, for the same
+    reason (rooms) and because the portal's price filter ignores the currency."""
+    places = json.dumps(
+        [
+            # The province is what makes the filter apply; without it the API
+            # answers with every listing in the country.
+            {"provincia": neighborhoods[key].mashogares, "localidad": neighborhoods[key].name, "tipo": "localidad"}
+            for key in search.neighborhoods
+        ],
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    urls = []
+    for kind in _types_in_canonical_order(search):
+        query = {"limit": _MASHOGARES_PAGE_SIZE, "ordenarPor": "fechaCreacion", "orden": "desc", "tipo": _MASHOGARES_TYPE_WORDS[kind]}
+        if search.min_garage:
+            query["minCocheras"] = search.min_garage
+        query["ubicaciones"] = places
+        urls.append(f"{_MASHOGARES_API}?{urlencode(query)}")
+    return urls
+
+
 def build_portal_urls(portal: Portal, search: Search, neighborhoods: dict[str, Neighborhood]) -> list[str]:
     """URLs to scrape for one portal, generated from the search."""
     if portal == "zonaprop":
         return [build_zonaprop_url(search, neighborhoods)]
     if portal == "argenprop":
         return [build_argenprop_url(search, neighborhoods)]
+    if portal == "mashogares":
+        return build_mashogares_urls(search, neighborhoods)
     return build_mercadolibre_urls(search, neighborhoods)

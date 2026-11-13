@@ -19,8 +19,9 @@ health:
 
 # Every alert is looked up on every portal listed here. Delete a portal from the
 # list to switch it off, for instance while it blocks the scraper; the health
-# email stops watching it too. Without this list all three are used.
-portals: [zonaprop, argenprop, mercadolibre]
+# email stops watching it too. Without this list all four are used. mashogares
+# (Más Hogares BNA) only has properties for sale, so rent alerts skip it.
+portals: [zonaprop, argenprop, mercadolibre, mashogares]
 
 # What to look for. Portals filter by URL, and dbt applies these criteria again
 # on top, because portals ignore or misread some filters.

@@ -1,8 +1,8 @@
 # Rent Radar
 
 Emails you when a new rental or sale listing that matches what you are looking
-for appears on ZonaProp, ArgenProp or MercadoLibre in Buenos Aires / Gran Buenos
-Aires. It has no UI of its own: everything is configured in `config/alerts.yaml`.
+for appears on ZonaProp, ArgenProp, MercadoLibre or Más Hogares BNA in Buenos Aires /
+Gran Buenos Aires. It has no UI of its own: everything is configured in `config/alerts.yaml`.
 
 ## How it works
 
@@ -48,8 +48,8 @@ docker compose up -d
 Everything is bound to loopback. Three flows run on their own schedule
 (`prefect.yaml`):
 
-- `rent-radar`, every 10 minutes: sync `config/alerts.yaml`, scrape ZonaProp and
-  ArgenProp, run dbt, send the alerts, check the portals' health.
+- `rent-radar`, every 10 minutes: sync `config/alerts.yaml`, scrape ZonaProp,
+  ArgenProp and Más Hogares BNA, run dbt, send the alerts, check the portals' health.
 - `rent-radar-mercadolibre`, every hour: scrape MercadoLibre (slow, with
   anti-bot pauses).
 - `rent-radar-prune`, daily at 08:00 Buenos Aires: delete snapshots older than
@@ -70,9 +70,10 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
     `mailto://user:app-password@gmail.com?to=you@example.com`. Several
     recipients go in `to=` separated by commas.
   - `health.enabled`: the email about portals that stop returning data.
-  - `portals`: the portals every alert is looked up on (all three by default).
+  - `portals`: the portals every alert is looked up on (all four by default).
     Remove one from the list to switch it off, for instance while it blocks
-    the scraper; its health email stops too.
+    the scraper; its health email stops too. Más Hogares BNA only lists
+    properties for sale, so rent alerts skip it.
   - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`
     or `sale`), a `delivery` (`digest` or `each`), `neighborhoods`,
     `property_types`, `rooms`, optional `min_garage` and `min_area_m2`, a
@@ -173,6 +174,15 @@ docker compose up -d
   because no URL form for them was checked. A wrong URL searches somewhere else
   and the results page is not checked against the neighborhoods, as ZonaProp's
   and ArgenProp's are.
+- **Más Hogares BNA** (`mashogares`) is read from the JSON API its pages use, not
+  from HTML, and only for sale alerts. It cannot filter by several property types
+  or room counts at once, so an alert makes one request per type and dbt applies
+  rooms and price. Its place filter matches by substring: "Florida" also brings
+  Florida Oeste and Villa La Florida, and the spider keeps only the exact
+  neighborhoods asked for. A neighborhood needs its province in
+  `config/neighborhoods.yaml` (`mashogares`), because without it the portal
+  ignores the filter and answers with the whole country; the spider fails the
+  run if that happens. Listings marked as reserved are still alerted.
 - Only **new listings** are alerted: no price changes, no listings that went
   off the market.
 - The same property on two portals is only recognised as one when both listings

@@ -6,7 +6,12 @@ from dataclasses import dataclass
 
 from app.searches import Operation
 
-_PORTAL_NAMES = {"zonaprop": "ZonaProp", "argenprop": "ArgenProp", "mercadolibre": "MercadoLibre"}
+_PORTAL_NAMES = {
+    "zonaprop": "ZonaProp",
+    "argenprop": "ArgenProp",
+    "mercadolibre": "MercadoLibre",
+    "mashogares": "Más Hogares BNA",
+}
 # First thing in every subject, so rent and sale tell apart in the inbox at a glance.
 _OPERATION_TAGS = {Operation.RENT: "[ALQUILER]", Operation.SALE: "[VENTA]"}
 _MAX_TITLE_LENGTH = 70

@@ -2,6 +2,7 @@ from collections.abc import Callable, Iterable
 
 from app.models import KnownDetail, Listing, ScrapeResult
 from .argenprop import scrape_argenprop
+from .mashogares import scrape_mashogares
 from .mercadolibre import scrape_mercadolibre
 from .zonaprop import scrape_zonaprop
 
@@ -20,6 +21,7 @@ _SCRAPERS: dict[str, ScraperFunc] = {
 	"mercadolibre": _complete(scrape_mercadolibre),
 	"argenprop": scrape_argenprop,
 	"zonaprop": _complete(scrape_zonaprop),
+	"mashogares": _complete(scrape_mashogares),
 }
 
 
@@ -34,7 +36,8 @@ def scrape_source(
 	"""Ejecuta el scraper de la fuente pedida.
 
 	`expected_names` solo lo entienden los spiders con constructor de URL (zonaprop,
-	argenprop): verifican que la pagina de resultados nombre esos barrios.
+	argenprop, mashogares): los dos primeros verifican que la pagina de resultados
+	nombre esos barrios; mashogares se queda solo con los avisos de esas localidades.
 	`known` lo entienden argenprop y mercadolibre: no piden el detalle de lo que ya conocen.
 	`stop_at_known` solo argenprop: deja de paginar en la primera pagina sin nada nuevo
 	(mercadolibre no ordena por fecha, asi que no puede cortar).

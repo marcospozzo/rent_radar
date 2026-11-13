@@ -24,7 +24,7 @@ import psycopg2
 import psycopg2.extras
 
 from app.alerts import build_notifier, send
-from app.searches import Config, SearchConfigError, load_config
+from app.searches import SALE_ONLY_PORTALS, Config, Operation, SearchConfigError, load_config
 
 DATABASE_URL = os.environ.get("NEON_DATABASE_URL") or os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
@@ -37,6 +37,7 @@ if not DATABASE_URL:
 THRESHOLDS_MIN = {
     "zonaprop": 90,
     "argenprop": 90,
+    "mashogares": 90,
     "mercadolibre": 150,
 }
 
@@ -118,8 +119,14 @@ def clear_alert(cur: psycopg2.extensions.cursor, fuente: str) -> None:
 
 
 def _watched_portals(config: Config) -> list[str]:
-    # Un portal apagado en alerts.yaml no tiene por qué tener corridas.
-    return [portal for portal in THRESHOLDS_MIN if portal in config.portals]
+    # Un portal apagado en alerts.yaml no tiene por qué tener corridas, ni uno solo
+    # de venta cuando todas las alertas activas son de alquiler.
+    sale_alerts = any(search.active and search.operation == Operation.SALE for search in config.searches)
+    return [
+        portal
+        for portal in THRESHOLDS_MIN
+        if portal in config.portals and (sale_alerts or portal not in SALE_ONLY_PORTALS)
+    ]
 
 
 def _check(config: Config) -> int:

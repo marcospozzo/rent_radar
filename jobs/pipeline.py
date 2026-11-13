@@ -1,8 +1,8 @@
 """
 Prefect flows de Rent Radar.
 
-ZonaProp y ArgenProp son rápidos y no tienen problemas de bloqueo, así que corren
-en el flow principal con cadencia corta. MercadoLibre usa Playwright (lento, ~20-30
+ZonaProp, ArgenProp y Más Hogares BNA son rápidos y no tienen problemas de bloqueo,
+así que corren en el flow principal con cadencia corta. MercadoLibre usa Playwright (lento, ~20-30
 min cuando scrapea bien) y aplica bloqueos anti-bot si se lo golpea muy seguido, así
 que corre en su propio flow con un intervalo mucho más largo e independiente. dbt
 recoge la última corrida exitosa de cada fuente por separado (ver
@@ -63,6 +63,11 @@ def task_ingest_argenprop() -> None:
     _run("run_ingest.py", "--source", "argenprop")
 
 
+@task(name="ingest-mashogares")
+def task_ingest_mashogares() -> None:
+    _run("run_ingest.py", "--source", "mashogares")
+
+
 @task(name="ingest-mercadolibre")
 def task_ingest_mercadolibre() -> None:
     _run("run_ingest.py", "--source", "mercadolibre")
@@ -104,7 +109,7 @@ def _try_step(name: str, fn) -> None:
 
 @flow(name="rent-radar", log_prints=True)
 def pipeline() -> None:
-    """ZonaProp + ArgenProp, transformación y alertas por email.
+    """ZonaProp, ArgenProp + Más Hogares BNA, transformación y alertas por email.
 
     Ningún paso individual puede frenar al resto: check_health (el que avisa
     de fallas) tiene que poder correr en el mismo ciclo sin importar qué haya
@@ -116,6 +121,7 @@ def pipeline() -> None:
     futures = [
         task_ingest_zonaprop.submit(),
         task_ingest_argenprop.submit(),
+        task_ingest_mashogares.submit(),
     ]
     for f in futures:
         error = f.result(raise_on_failure=False)

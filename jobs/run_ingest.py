@@ -16,11 +16,12 @@ import threading
 from dataclasses import dataclass
 from typing import get_args
 
-from app.searches import Portal, SearchConfigError, load_config, load_neighborhoods
+from app.searches import SALE_ONLY_PORTALS, Operation, Portal, SearchConfigError, load_config, load_neighborhoods
 from spiders.urls import build_portal_urls
 
-# Portals whose results page heading is checked against the neighborhoods asked for.
-HEADING_CHECKED_PORTALS = ("zonaprop", "argenprop")
+# Portals whose results are checked against the neighborhoods asked for: ZonaProp and
+# ArgenProp by the results page heading, Mas Hogares BNA by each listing's locality.
+HEADING_CHECKED_PORTALS = ("zonaprop", "argenprop", "mashogares")
 
 # Pages read per start URL. Results are sorted by relevance, and what lies this far
 # down no longer matches a search that narrow.
@@ -48,6 +49,8 @@ def build_jobs(only_portal: str | None) -> list[IngestJob]:
             continue
         for portal in config.portals:
             if only_portal and portal != only_portal:
+                continue
+            if search.operation == Operation.RENT and portal in SALE_ONLY_PORTALS:
                 continue
             jobs.append(
                 IngestJob(
@@ -103,7 +106,7 @@ def _run_job(job: IngestJob) -> int:
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", default=None, help="Correr solo este portal (zonaprop|argenprop|mercadolibre)")
+    parser.add_argument("--source", default=None, help="Correr solo este portal (zonaprop|argenprop|mercadolibre|mashogares)")
     args = parser.parse_args()
 
     portals = get_args(Portal)
@@ -118,7 +121,9 @@ def main() -> None:
 
     if not jobs:
         print("No hay busquedas activas para correr (ver alerts.yaml).")
-        sys.exit(1)
+        # With --source it may be only that portal: switched off in `portals`, or a
+        # sale-only one when every alert is for rent. That is not a failure.
+        sys.exit(0 if args.source else 1)
 
     jobs_by_portal: dict[str, list[IngestJob]] = {}
     for job in jobs:

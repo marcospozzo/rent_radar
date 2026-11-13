@@ -22,6 +22,8 @@ specs_parsed as (
     --               "1 cochera" / "55 años"
     -- MercadoLibre: "Superficie cubierta: 118 m²" / "Superficie total: 151 m²"
     --               "Cocheras: 1" / "Antigüedad: 55 años" / "Ambientes: 3"
+    -- Mas Hogares:  el spider escribe las especificaciones con el formato de
+    --               MercadoLibre (sin "Ambientes", que llega como campo).
     select
         d.id,
         max(case
@@ -31,7 +33,7 @@ specs_parsed as (
                 then (regexp_match(s.spec, '(\d+)\s*m', 'i'))[1]::numeric
             when d.fuente = 'argenprop'    and s.spec ~* '^sup\.\s*cubierta\s*:'
                 then (regexp_match(s.spec, ':\s*(\d+)', 'i'))[1]::numeric
-            when d.fuente = 'mercadolibre' and s.spec ~* '^superficie\s+cubierta\s*:'
+            when d.fuente in ('mercadolibre', 'mashogares') and s.spec ~* '^superficie\s+cubierta\s*:'
                 then (regexp_match(s.spec, ':\s*(\d+)', 'i'))[1]::numeric
         end) as superficie_cubierta,
         max(case
@@ -41,7 +43,7 @@ specs_parsed as (
                 then (regexp_match(s.spec, '(\d+)\s*m', 'i'))[1]::numeric
             when d.fuente = 'argenprop'    and s.spec ~* '^sup\.\s*total\s*:'
                 then (regexp_match(s.spec, ':\s*(\d+)', 'i'))[1]::numeric
-            when d.fuente = 'mercadolibre' and s.spec ~* '^superficie\s+total\s*:'
+            when d.fuente in ('mercadolibre', 'mashogares') and s.spec ~* '^superficie\s+total\s*:'
                 then (regexp_match(s.spec, ':\s*(\d+)', 'i'))[1]::numeric
         end) as superficie_total,
         max(case
@@ -49,17 +51,17 @@ specs_parsed as (
                 then (regexp_match(s.spec, '^(\d+)', 'i'))[1]::numeric
             when d.fuente = 'argenprop'    and s.spec ~* '^\d+\s*cochera'
                 then (regexp_match(s.spec, '^(\d+)', 'i'))[1]::numeric
-            when d.fuente = 'mercadolibre' and s.spec ~* '^cocheras\s*:'
+            when d.fuente in ('mercadolibre', 'mashogares') and s.spec ~* '^cocheras\s*:'
                 then (regexp_match(s.spec, ':\s*(\d+)', 'i'))[1]::numeric
         end) as cocheras,
         max(case
             when d.fuente in ('zonaprop', 'argenprop') and s.spec ~* '^\d+\s*años'
                 then (regexp_match(s.spec, '^(\d+)', 'i'))[1]::numeric
-            when d.fuente = 'mercadolibre' and s.spec ~* '^antig'
+            when d.fuente in ('mercadolibre', 'mashogares') and s.spec ~* '^antig'
                 then (regexp_match(s.spec, '(\d+)\s*años?', 'i'))[1]::numeric
         end) as antiguedad,
         max(case
-            when d.fuente = 'mercadolibre' and s.spec ~* '^ambientes\s*:'
+            when d.fuente in ('mercadolibre', 'mashogares') and s.spec ~* '^ambientes\s*:'
                 then (regexp_match(s.spec, ':\s*(\d+)', 'i'))[1]::numeric
         end) as spec_ambientes
     from deduped d
