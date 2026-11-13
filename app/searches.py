@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from enum import Enum
 from pathlib import Path
 from typing import Literal
@@ -15,6 +16,10 @@ NEIGHBORHOODS_FILE = Path(os.environ.get("NEIGHBORHOODS_FILE", "config/neighborh
 
 Portal = Literal["zonaprop", "argenprop", "mercadolibre"]
 PropertyType = Literal["casa", "departamento", "ph"]
+
+# Deliberately loose: enough to catch a typo or a comma, not a full RFC 5322 check
+# (that would take a dependency). The mail server is what rejects a wrong address.
+_EMAIL = re.compile(r"^[^@\s,]+@[^@\s,]+\.[^@\s,]+$")
 
 
 class SearchConfigError(Exception):
@@ -79,6 +84,19 @@ class Search(_Strict):
     min_area_m2: int | None = Field(default=None, gt=0)
     price: Price
     portals: dict[Portal, PortalConfig] = Field(min_length=1)
+    # Who gets this alert's emails. Empty means the recipient of the Apprise URL, so
+    # the addresses of other people live only in alerts.yaml, which git ignores.
+    to: list[str] = Field(default_factory=list)
+
+    @field_validator("to")
+    @classmethod
+    def _valid_recipients(cls, value: list[str]) -> list[str]:
+        # The message omits the address: it would end up in the logs.
+        if any(not _EMAIL.match(address) for address in value):
+            raise ValueError("every entry must be an email address")
+        if len({address.lower() for address in value}) != len(value):
+            raise ValueError("the same address appears twice")
+        return value
 
     @field_validator("operation", mode="before")
     @classmethod

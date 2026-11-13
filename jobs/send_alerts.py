@@ -110,7 +110,12 @@ def _listing(row: PendingRow, search: Search) -> NewListing:
 def main() -> None:
     try:
         config = load_config()
-        notifier = build_notifier(config.apprise.services)
+        # One notifier per distinct list of recipients; built up front so a bad
+        # configuration fails before anything is sent.
+        notifiers = {
+            tuple(search.to): build_notifier(config.apprise.services, search.to)
+            for search in config.searches
+        }
     except SearchConfigError as exc:
         sys.exit(f"Invalid alert configuration: {exc}")
     searches = {search.id: search for search in config.searches}
@@ -145,7 +150,7 @@ def main() -> None:
                     if search.delivery is Delivery.DIGEST
                     else single_message(search.id, listings[0])
                 )
-                if send(notifier, title, body):
+                if send(notifiers[tuple(search.to)], title, body):
                     with conn, conn.cursor() as cur:
                         cur.execute(MARK_SENT, (tuple(key for key, _ in batch),))
                     emails += 1

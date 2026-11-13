@@ -30,12 +30,18 @@ health:
 # price.min and price.max are both optional, alone or together. The minimum
 # compares the listing's price alone; the maximum adds the expensas.
 #
+# to (optional) lists the addresses an alert's emails go to; without it they go to
+# the address in the Apprise URL, and so do the health emails. Use it for alerts
+# that are for someone else, with the id prefixed by the person. Addresses live
+# only in alerts.yaml, which git ignores. Needs an email (mailto) Apprise URL.
+#
 # A portal with `urls` uses them as written instead of a generated URL. Use it
 # when a portal's URL rules are not supported or have changed.
 alerts:
   - id: norte-alquiler
     operation: rent
     delivery: digest
+    # to: [friend@example.com]
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }

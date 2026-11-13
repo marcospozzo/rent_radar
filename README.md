@@ -77,7 +77,13 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
     `price` (`currency` and an optional `min` and `max`), and the `portals` to
     scrape with their `max_pages` and optional `urls`. An alert is one
     operation; to look for both, write two alerts, which can differ in
-    property types, rooms or neighborhoods.
+    property types, rooms or neighborhoods. An optional `to` lists the
+    addresses that alert's emails go to; without it they go to the address in
+    the Apprise URL. That is how alerts for other people stay independent: each
+    has its own `id` (prefix it with the person) and its own `to`, and their
+    addresses live only in this git-ignored file. The health emails always go
+    to the Apprise URL's address. A new alert starts silently (it records what
+    already exists) and emails from the next cycle on.
 - **`config/neighborhoods.yaml`**: each neighborhood as the portals name it in
   their URLs. Add an entry only after checking the slug on the live portal; a
   wrong one makes a portal silently search somewhere else.
