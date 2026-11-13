@@ -29,31 +29,35 @@ portals: [zonaprop, argenprop, mercadolibre]
 # both, write two alerts: that way each can ask for different property types,
 # rooms or neighborhoods (houses to buy, PHs to rent).
 #
-# delivery: digest (default) sends one email per cycle with everything new;
-# each sends one email per listing.
-#
-# price.min and price.max are both optional, alone or together. The minimum
-# compares the listing's price alone; the maximum adds the expensas.
-#
-# to (optional) lists the addresses an alert's emails go to; without it they go to
-# the address in the Apprise URL, and so do the health emails. Use it for alerts
-# that are for someone else, with the id prefixed by the person. Addresses live
-# only in alerts.yaml, which git ignores. Needs an email (mailto) Apprise URL.
+# Every key an alert accepts is in the first one below; the ones marked optional
+# can be left out. An unknown key is an error, so a typo does not go unnoticed.
 alerts:
-  - id: norte-alquiler
-    operation: rent
+  - id: norte-alquiler          # lowercase words joined by "-"; unique across alerts
+    operation: rent             # rent | sale
+    active: true                # optional, default true; false pauses the alert
+    # delivery (optional, default digest): digest sends one email per cycle with
+    # everything new; each sends one email per listing.
     delivery: digest
+    # to (optional) lists the addresses this alert's emails go to; without it they
+    # go to the address in the Apprise URL, and so do the health emails. Use it for
+    # alerts that are for someone else, with the id prefixed by the person.
+    # Addresses live only in alerts.yaml, which git ignores. Needs an email
+    # (mailto) Apprise URL.
     # to: [friend@example.com]
+    # Keys of config/neighborhoods.yaml.
     neighborhoods: [florida, olivos, saavedra]
-    property_types: [casa, ph, departamento]
-    rooms: { min: 3 }
-    price: { currency: ARS, min: 1000000, max: 2000000 }
+    property_types: [casa, ph, departamento]    # casa | ph | departamento
+    rooms: { min: 3, max: 5 }   # max is optional
+    min_garage: 1               # optional, default 0 (no requirement)
+    min_area_m2: 70             # optional, covered area in m2
+    # price.min and price.max are both optional, alone or together. The minimum
+    # compares the listing's price alone; the maximum adds the expensas.
+    price: { currency: ARS, min: 1000000, max: 2000000 }    # currency: ARS | USD
 
+  # The smallest alert: only the required keys.
   - id: norte-venta
     operation: sale
-    min_garage: 1
-    delivery: digest
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph]
     rooms: { min: 3 }
-    price: { currency: USD, min: 100000, max: 200000 }
+    price: { currency: USD, max: 200000 }
