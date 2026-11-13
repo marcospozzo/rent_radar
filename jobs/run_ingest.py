@@ -4,8 +4,8 @@ Corre los spiders para cada busqueda activa de alerts.yaml.
 Una corrida es un portal scrapeado para una busqueda (main.py --ingest). Los
 portales corren en paralelo entre si, pero las busquedas de un mismo portal van
 una detras de otra: es lo que mantiene bajo el ritmo de pedidos a cada portal.
-Las URLs de cada portal son las escritas en la busqueda o las generadas a partir
-de ella.
+Las URLs de cada portal se generan a partir de la busqueda; los portales que
+corren son los de la lista `portals` de alerts.yaml.
 """
 from __future__ import annotations
 
@@ -22,6 +22,10 @@ from spiders.urls import build_portal_urls
 # Portals whose results page heading is checked against the neighborhoods asked for.
 HEADING_CHECKED_PORTALS = ("zonaprop", "argenprop")
 
+# Pages read per start URL. Results are sorted by relevance, and what lies this far
+# down no longer matches a search that narrow.
+MAX_PAGES = 20
+
 INACTIVITY_TIMEOUT = 120  # segundos sin output → proceso colgado
 
 
@@ -30,29 +34,31 @@ class IngestJob:
     portal: str
     search_id: str
     urls: list[str]
-    max_pages: int
-    # Barrios que la pagina de resultados debe nombrar. Vacio si las URLs se
-    # escribieron a mano: ahi no sabemos que barrios cubren.
+    # Barrios que la pagina de resultados debe nombrar. Vacio para los portales
+    # cuya pagina de resultados no los nombra.
     expected_names: list[str]
 
 
 def build_jobs(only_portal: str | None) -> list[IngestJob]:
     neighborhoods = load_neighborhoods()
+    config = load_config()
     jobs: list[IngestJob] = []
-    for search in load_config().searches:
+    for search in config.searches:
         if not search.active:
             continue
-        for portal, portal_config in search.portals.items():
+        for portal in config.portals:
             if only_portal and portal != only_portal:
                 continue
-            generated = not portal_config.urls and portal in HEADING_CHECKED_PORTALS
             jobs.append(
                 IngestJob(
                     portal=portal,
                     search_id=search.id,
                     urls=build_portal_urls(portal, search, neighborhoods),
-                    max_pages=portal_config.max_pages,
-                    expected_names=[neighborhoods[key].name for key in search.neighborhoods] if generated else [],
+                    expected_names=(
+                        [neighborhoods[key].name for key in search.neighborhoods]
+                        if portal in HEADING_CHECKED_PORTALS
+                        else []
+                    ),
                 )
             )
     return jobs
@@ -65,7 +71,7 @@ def _run_job(job: IngestJob) -> int:
         cmd += ["--start-url", url]
     for name in job.expected_names:
         cmd += ["--expect-name", name]
-    cmd += ["--max-pages", str(job.max_pages)]
+    cmd += ["--max-pages", str(MAX_PAGES)]
 
     proc = subprocess.Popen(
         cmd,

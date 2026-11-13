@@ -155,10 +155,7 @@ def build_mercadolibre_urls(search: Search, neighborhoods: dict[str, Neighborhoo
 
 
 def build_portal_urls(portal: Portal, search: Search, neighborhoods: dict[str, Neighborhood]) -> list[str]:
-    """URLs to scrape for one portal: the ones written in the search, else generated."""
-    configured = search.portals[portal].urls
-    if configured:
-        return configured
+    """URLs to scrape for one portal, generated from the search."""
     if portal == "zonaprop":
         return [build_zonaprop_url(search, neighborhoods)]
     if portal == "argenprop":

@@ -11,8 +11,7 @@ spiders -> raw.snapshots -> dbt -> gold.candidatas -> send_alerts -> email (Appr
 ```
 
 1. Every cycle the spiders scrape the searches in `config/alerts.yaml`. The URLs
-   of the three portals are generated from each alert, unless the alert writes
-   its own.
+   of each portal are generated from each alert.
 2. dbt cleans and deduplicates the listings and keeps those that meet each
    alert's own criteria (rooms, area, garage, price).
 3. A listing is new for an alert when it has not been seen before. The first
@@ -63,7 +62,7 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
 
 - **`config/alerts.yaml`** is the only file you edit. It holds what you look for,
   which is personal, so git ignores it: start from `config/alerts.example.yaml`.
-  It has three parts:
+  It has four parts:
   - `apprise.services`: where the alerts go. Each service points at a file
     holding one Apprise URL (`url_file`), because the URL carries a password
     and must stay out of git. Keep it in `config/apprise-url.txt` (git ignores
@@ -71,11 +70,13 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
     `mailto://user:app-password@gmail.com?to=you@example.com`. Several
     recipients go in `to=` separated by commas.
   - `health.enabled`: the email about portals that stop returning data.
+  - `portals`: the portals every alert is looked up on (all three by default).
+    Remove one from the list to switch it off, for instance while it blocks
+    the scraper; its health email stops too.
   - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`
     or `sale`), a `delivery` (`digest` or `each`), `neighborhoods`,
     `property_types`, `rooms`, optional `min_garage` and `min_area_m2`, a
-    `price` (`currency` and an optional `min` and `max`), and the `portals` to
-    scrape with their `max_pages` and optional `urls`. An alert is one
+    `price` (`currency` and an optional `min` and `max`). An alert is one
     operation; to look for both, write two alerts, which can differ in
     property types, rooms or neighborhoods. An optional `to` lists the
     addresses that alert's emails go to; without it they go to the address in

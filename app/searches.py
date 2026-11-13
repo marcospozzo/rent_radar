@@ -5,7 +5,7 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -64,11 +64,6 @@ class Price(_Strict):
         return self
 
 
-class PortalConfig(_Strict):
-    max_pages: int = Field(default=20, ge=1)
-    urls: list[str] = Field(default_factory=list)
-
-
 class Search(_Strict):
     """One alert from alerts.yaml: one operation looked up on the portals, which is
     what the pipeline actually runs."""
@@ -83,7 +78,6 @@ class Search(_Strict):
     min_garage: int = Field(default=0, ge=0)
     min_area_m2: int | None = Field(default=None, gt=0)
     price: Price
-    portals: dict[Portal, PortalConfig] = Field(min_length=1)
     # Who gets this alert's emails. Empty means the recipient of the Apprise URL, so
     # the addresses of other people live only in alerts.yaml, which git ignores.
     to: list[str] = Field(default_factory=list)
@@ -134,12 +128,23 @@ class HealthConfig(_Strict):
 class _AlertsFile(_Strict):
     apprise: AppriseConfig
     health: HealthConfig = Field(default_factory=HealthConfig)
+    # Every portal looks up every alert; this list only switches a portal off, for
+    # instance one that is blocking the scraper.
+    portals: list[Portal] = Field(default_factory=lambda: list(get_args(Portal)), min_length=1)
     alerts: list[Search]
+
+    @field_validator("portals")
+    @classmethod
+    def _portals_not_repeated(cls, value: list[Portal]) -> list[Portal]:
+        if len(set(value)) != len(value):
+            raise ValueError("a portal appears twice")
+        return value
 
 
 class Config(_Strict):
     apprise: AppriseConfig
     health: HealthConfig
+    portals: list[Portal]
     searches: list[Search]
 
 
@@ -195,4 +200,4 @@ def load_config(
         if search.id in seen_ids:
             raise SearchConfigError(f"{alerts_path}: id '{search.id}' appears more than once")
         seen_ids.add(search.id)
-    return Config(apprise=parsed.apprise, health=parsed.health, searches=parsed.alerts)
+    return Config(apprise=parsed.apprise, health=parsed.health, portals=parsed.portals, searches=parsed.alerts)

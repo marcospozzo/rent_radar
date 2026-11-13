@@ -118,9 +118,8 @@ def clear_alert(cur: psycopg2.extensions.cursor, fuente: str) -> None:
 
 
 def _watched_portals(config: Config) -> list[str]:
-    # Un portal que ninguna alerta activa usa no tiene por qué tener corridas.
-    used = {portal for search in config.searches if search.active for portal in search.portals}
-    return [portal for portal in THRESHOLDS_MIN if portal in used]
+    # Un portal apagado en alerts.yaml no tiene por qué tener corridas.
+    return [portal for portal in THRESHOLDS_MIN if portal in config.portals]
 
 
 def _check(config: Config) -> int:

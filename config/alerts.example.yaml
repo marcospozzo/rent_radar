@@ -17,6 +17,11 @@ apprise:
 health:
   enabled: true
 
+# Every alert is looked up on every portal listed here. Delete a portal from the
+# list to switch it off, for instance while it blocks the scraper; the health
+# email stops watching it too. Without this list all three are used.
+portals: [zonaprop, argenprop, mercadolibre]
+
 # What to look for. Portals filter by URL, and dbt applies these criteria again
 # on top, because portals ignore or misread some filters.
 #
@@ -34,9 +39,6 @@ health:
 # the address in the Apprise URL, and so do the health emails. Use it for alerts
 # that are for someone else, with the id prefixed by the person. Addresses live
 # only in alerts.yaml, which git ignores. Needs an email (mailto) Apprise URL.
-#
-# A portal with `urls` uses them as written instead of a generated URL. Use it
-# when a portal's URL rules are not supported or have changed.
 alerts:
   - id: norte-alquiler
     operation: rent
@@ -46,10 +48,6 @@ alerts:
     property_types: [casa, ph, departamento]
     rooms: { min: 3 }
     price: { currency: ARS, min: 1000000, max: 2000000 }
-    portals:
-      zonaprop: { max_pages: 20 }
-      argenprop: { max_pages: 20 }
-      mercadolibre: { max_pages: 20 }
 
   - id: norte-venta
     operation: sale
@@ -59,7 +57,3 @@ alerts:
     property_types: [casa, ph]
     rooms: { min: 3 }
     price: { currency: USD, min: 100000, max: 200000 }
-    portals:
-      zonaprop: { max_pages: 20 }
-      argenprop: { max_pages: 20 }
-      mercadolibre: { max_pages: 20 }
