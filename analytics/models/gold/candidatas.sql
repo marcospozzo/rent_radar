@@ -17,7 +17,7 @@ inner join silver.busquedas b
     on b.id_busqueda = pb.id_busqueda
 -- Ambientes o superficie desconocidos pasan: el portal ya filtró por ellos y perder
 -- un aviso por un dato que no se pudo leer es peor que mostrar uno de más.
-where (p.ambientes is null or p.ambientes >= b.ambientes_min)
+where (p.ambientes is null or b.ambientes_min is null or p.ambientes >= b.ambientes_min)
   and (p.ambientes is null or b.ambientes_max is null or p.ambientes <= b.ambientes_max)
   and coalesce(p.cocheras, 0) >= b.cocheras_min
   and (b.superficie_min_m2 is null

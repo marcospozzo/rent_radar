@@ -76,8 +76,9 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
     properties for sale, so rent alerts skip it.
   - `alerts`: what to look for. Each alert has an `id`, an `operation` (`rent`
     or `sale`), a `delivery` (`digest` or `each`), `neighborhoods`,
-    `property_types`, `rooms`, optional `min_garage` and `min_area_m2`, a
-    `price` (`currency` and an optional `min` and `max`). An alert is one
+    `property_types`, a `price` (`currency` and an optional `min` and `max`),
+    and optional `rooms` (any number when left out), `min_garage` and
+    `min_area_m2`. An alert is one
     operation; to look for both, write two alerts, which can differ in
     property types, rooms or neighborhoods. An optional `to` lists the
     addresses that alert's emails go to; without it they go to the address in

@@ -23,8 +23,8 @@ def _row(search: Search) -> tuple[object, ...]:
         search.price.currency,
         search.price.min,
         search.price.max,
-        search.rooms.min,
-        search.rooms.max,
+        search.rooms.min if search.rooms else None,
+        search.rooms.max if search.rooms else None,
         search.min_garage,
         search.min_area_m2,
     )

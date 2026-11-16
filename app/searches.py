@@ -76,7 +76,8 @@ class Search(_Strict):
     active: bool = True
     neighborhoods: list[str] = Field(min_length=1)
     property_types: list[PropertyType] = Field(min_length=1)
-    rooms: Rooms
+    # Without it any number of rooms matches.
+    rooms: Rooms | None = None
     min_garage: int = Field(default=0, ge=0)
     min_area_m2: int | None = Field(default=None, gt=0)
     price: Price

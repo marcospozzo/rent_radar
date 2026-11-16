@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from urllib.parse import urlencode
 
-from app.searches import Neighborhood, Operation, Portal, Search
+from app.searches import Neighborhood, Operation, Portal, Rooms, Search
 
 _PROPERTY_TYPE_ORDER = ("casa", "departamento", "ph")
 _TYPE_WORDS = {"casa": "casas", "departamento": "departamentos", "ph": "ph"}
@@ -34,8 +34,15 @@ def _types_in_canonical_order(search: Search) -> list[str]:
     return [kind for kind in _PROPERTY_TYPE_ORDER if kind in search.property_types]
 
 
+def _rooms_or_any(search: Search) -> Rooms:
+    # One room or more is every listing.
+    return search.rooms or Rooms(min=1)
+
+
 def _zonaprop_rooms_segment(search: Search) -> str:
-    rooms = search.rooms
+    # ZonaProp drops the neighborhood when this segment is missing before the price
+    # one, so an alert without rooms still writes it, as "one or more".
+    rooms = _rooms_or_any(search)
     if rooms.max is not None:
         return f"desde-{rooms.min}-hasta-{rooms.max}-ambientes"
     # "mas-de-N" means N or more; "desde-N" alone means exactly N. But "mas-de-N"
@@ -83,7 +90,9 @@ def build_zonaprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) -
     return f"https://www.zonaprop.com.ar/{'-'.join(parts)}.html"
 
 
-def _argenprop_rooms_segment(search: Search) -> str:
+def _argenprop_rooms_segment(search: Search) -> str | None:
+    if search.rooms is None:
+        return None
     lowest = min(search.rooms.min, _ARGENPROP_TOP_ROOMS)
     highest = _ARGENPROP_TOP_ROOMS if search.rooms.max is None else min(search.rooms.max, _ARGENPROP_TOP_ROOMS)
     options = [
@@ -110,11 +119,10 @@ def build_argenprop_url(search: Search, neighborhoods: dict[str, Neighborhood]) 
         "-o-".join(_TYPE_WORDS[kind] for kind in _types_in_canonical_order(search)),
         _OPERATION_WORDS[search.operation],
         "-o-".join(neighborhoods[key].argenprop for key in search.neighborhoods),
-        _argenprop_rooms_segment(search),
     ]
-    price_segment = _argenprop_price_segment(search)
-    if price_segment:
-        segments.append(price_segment)
+    for optional_segment in (_argenprop_rooms_segment(search), _argenprop_price_segment(search)):
+        if optional_segment:
+            segments.append(optional_segment)
     query = []
     if search.min_garage:
         # Checked only for one garage or more.
@@ -150,7 +158,7 @@ def build_mercadolibre_urls(search: Search, neighborhoods: dict[str, Neighborhoo
     one URL for each type and neighborhood."""
     # "mas-de-N-ambientes" means N or more; a maximum is left to dbt. One room or
     # more is every listing, so it needs no filter.
-    rooms = f"mas-de-{search.rooms.min}-ambientes/" if search.rooms.min > 1 else ""
+    rooms = f"mas-de-{search.rooms.min}-ambientes/" if search.rooms and search.rooms.min > 1 else ""
     filters = _mercadolibre_filters(search)
     return [
         f"https://inmuebles.mercadolibre.com.ar/{_MERCADOLIBRE_TYPE_WORDS[kind]}/"

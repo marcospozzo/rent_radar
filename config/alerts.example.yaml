@@ -48,7 +48,7 @@ alerts:
     # Keys of config/neighborhoods.yaml.
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph, departamento]    # casa | ph | departamento
-    rooms: { min: 3, max: 5 }   # max is optional
+    rooms: { min: 3, max: 5 }   # optional; without it any number of rooms matches. max is optional
     min_garage: 1               # optional, default 0 (no requirement)
     min_area_m2: 70             # optional, covered area in m2
     # price.min and price.max are both optional, alone or together. The minimum
@@ -60,5 +60,4 @@ alerts:
     operation: sale
     neighborhoods: [florida, olivos, saavedra]
     property_types: [casa, ph]
-    rooms: { min: 3 }
     price: { currency: USD, max: 200000 }
