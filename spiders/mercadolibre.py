@@ -363,7 +363,12 @@ class MercadoLibreSpider:
             # The CABA URLs answer 404 and still render their results, with a banner
             # saying the place name was not found; any other error has no results.
             if resp and resp.status >= 400 and resp.status != 404:
-                logger.error("HTTP %d al pedir %s", resp.status, url)
+                if resp.status == 400:
+                    # Seen with a search that has no results (Coghlan casas with Marc's
+                    # filters), which is not a failure of the run.
+                    logger.warning("HTTP 400 al pedir %s: MercadoLibre responde asi a una busqueda sin resultados", url)
+                else:
+                    logger.error("HTTP %d al pedir %s", resp.status, url)
                 return None
             logger.info("Pagina cargada (HTTP %d), esperando publicaciones...", resp.status if resp else 0)
             self._dismiss_cookie_banner()
