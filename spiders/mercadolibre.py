@@ -22,6 +22,9 @@ _LOGIN_GATE_KEYWORDS = ("ingresa a tu cuenta", "inicia sesión", "inicia sesion"
 # The first load of a page sometimes answers with an error page (a code such as
 # SCH04-... and a "Reintentar" button) that loading again gets past.
 _MAX_ERROR_RELOADS = 2
+# Results per page. Page N starts at result (N - 1) * 48 + 1, which the URL takes as
+# "_Desde_<first result>" ahead of the filters.
+_RESULTS_PER_PAGE = 48
 
 _UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -38,6 +41,15 @@ class SpiderConfig:
     delay_max: float = 12.0
     session_size: int = 20       # reiniciar contexto del browser cada N listings de detalle
     session_restart_delay: float = 30.0  # pausa (seg) antes de abrir nuevo contexto
+
+
+def _page_url(start_url: str, page: int) -> str:
+    if page == 1:
+        return start_url
+    first_result = (page - 1) * _RESULTS_PER_PAGE + 1
+    # The offset goes right after the place, ahead of the filters; every search URL
+    # starts its filters with "_PriceRange" or, without a maximum price, "_NoIndex".
+    return re.sub(r"_((?:PriceRange|NoIndex)_)", rf"_Desde_{first_result}_\1", start_url, count=1)
 
 
 class MercadoLibreSpider:
@@ -156,6 +168,8 @@ class MercadoLibreSpider:
     def _iter_cards(self, start_url: str) -> list[tuple[str, dict[str, float | str | None]]]:
         """Every listing's URL on the results pages, with what its card shows."""
         all_cards: list[tuple[str, dict[str, float | str | None]]] = []
+        # A listing can show up on two pages when the results shift between requests.
+        collected_ids: set[str] = set()
         soup = self._navigate_search(start_url)
         for page_num in range(1, self.config.max_pages + 1):
             if soup is None:
@@ -173,9 +187,13 @@ class MercadoLibreSpider:
                 # every load and that carries no listing id, so the same ad would be
                 # taken for a new listing, and alerted, each cycle. They are also not
                 # bound to the search's filters.
-                if not MELI_LISTING_ID_PATTERN.search(href):
+                listing_id = MELI_LISTING_ID_PATTERN.search(href)
+                if not listing_id:
                     sponsored += 1
                     continue
+                if listing_id.group(1) in collected_ids:
+                    continue
+                collected_ids.add(listing_id.group(1))
                 all_cards.append((href, self._read_card(node)))
             if sponsored:
                 logger.info("Pagina %d: %d publicaciones patrocinadas ignoradas", page_num, sponsored)
@@ -199,24 +217,13 @@ class MercadoLibreSpider:
                 logger.debug("Sin pagina siguiente, finalizando en pagina %d.", page_num)
                 break
 
-            soup = self._click_next_page(page_num)
+            # The "Siguiente" button is a link with an empty href that only JavaScript
+            # follows, and clicking it timed out about once in two cycles, leaving
+            # every later page of the search unread (results are not sorted by date).
+            # Asking for the page by URL does not depend on it.
+            soup = self._navigate_search(_page_url(start_url, page_num + 1))
 
         return all_cards
-
-    def _click_next_page(self, page_num: int) -> BeautifulSoup | None:
-        self._delay()
-        try:
-            self._page.click("[data-andes-pagination-control='next']")
-            self._dismiss_cookie_banner()
-            try:
-                self._page.wait_for_selector("a.poly-component__title", timeout=15_000)
-            except Exception:
-                self._page.wait_for_timeout(3_000)
-            logger.info("Paginacion: click en Siguiente desde pagina %d | nueva url=%s", page_num, self._page.url)
-            return BeautifulSoup(self._page.content(), "html.parser")
-        except Exception as exc:
-            logger.error("Error al navegar a pagina siguiente desde pagina %d: %s", page_num, exc)
-            return None
 
     def _parse_listing(self, detail_url: str) -> Listing | None:
         soup = self._navigate(detail_url)
