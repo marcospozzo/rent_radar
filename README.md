@@ -197,7 +197,8 @@ docker compose up -d
 
 ## Roads
 
-The email of a listing says when it is within 300 m of a motorway or 60 m of an
+The email of every measured listing shows its distance to the nearest motorway
+and avenue, and marks with ⚠ those within 300 m of a motorway or 60 m of an
 avenue (`MOTORWAY_WARNING_M` and `AVENUE_WARNING_M` in `app/alert_format.py`).
 It only warns; nothing is filtered out. Every measured listing keeps its
 distances and the roads' names in `silver.cercania_vias` (up to 1 km; farther is

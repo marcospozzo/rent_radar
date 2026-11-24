@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.roads import Nearest
+from app.roads import SEARCH_RADIUS_M, Nearest
 from app.searches import Operation
 
 _PORTAL_NAMES = {
@@ -77,21 +77,34 @@ def format_details(listing: NewListing) -> str:
     return " · ".join(parts)
 
 
-def _road_warning(label: str, nearest: Nearest | None, threshold_m: int) -> str | None:
-    if nearest is None or nearest.distance_m > threshold_m:
-        return None
+def _road_distance(label: str, nearest: Nearest | None) -> str:
+    if nearest is None:
+        return f"sin {label.lower()} a menos de {SEARCH_RADIUS_M / 1000:g} km"
     name = f" ({_escape(nearest.name)})" if nearest.name else ""
-    return f"⚠ {label} a ~{nearest.distance_m} m{name}"
+    return f"{label} a ~{nearest.distance_m} m{name}"
 
 
-def format_road_warnings(listing: NewListing) -> list[str]:
+def format_road_lines(listing: NewListing) -> list[str]:
+    """A warning line per road closer than its threshold, and one line with the
+    distance to the rest. Distances far from any road are shown too, so every email
+    tells a listing that is far from roads apart from one that was not measured."""
     if not listing.roads_measured:
         return ["No se pudo medir la distancia a autopistas y avenidas (el aviso no trae ubicación)"]
-    warnings = [
-        _road_warning("Autopista", listing.motorway, MOTORWAY_WARNING_M),
-        _road_warning("Avenida", listing.avenue, AVENUE_WARNING_M),
-    ]
-    return [warning for warning in warnings if warning]
+    warnings: list[str] = []
+    distances: list[str] = []
+    for label, nearest, threshold_m in (
+        ("Autopista", listing.motorway, MOTORWAY_WARNING_M),
+        ("Avenida", listing.avenue, AVENUE_WARNING_M),
+    ):
+        text = _road_distance(label, nearest)
+        if nearest is not None and nearest.distance_m <= threshold_m:
+            warnings.append(f"⚠ {text}")
+        else:
+            distances.append(text)
+    if distances:
+        line = " · ".join(distances)
+        warnings.append(line[0].upper() + line[1:])
+    return warnings
 
 
 def _block(listing: NewListing) -> str:
@@ -110,7 +123,7 @@ def _block(listing: NewListing) -> str:
     details = format_details(listing)
     if details:
         lines.append(details)
-    lines.extend(format_road_warnings(listing))
+    lines.extend(format_road_lines(listing))
     lines.append(f"[Ver publicación]({listing.url})")
     # Two trailing spaces are Markdown's line break.
     return "  \n".join(lines)
