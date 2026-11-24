@@ -17,6 +17,7 @@ import psycopg2.extras
 
 from app.alert_format import NewListing, digest_message, single_message
 from app.alerts import build_notifier, send
+from app.roads import Nearest
 from app.searches import Delivery, Search, SearchConfigError, load_config
 
 # Listings of a search and portal whose baseline is not over yet are recorded as
@@ -52,9 +53,12 @@ FETCH_PENDING = """
     SELECT a.id_busqueda, a.fuente, a.id_publicacion,
            c.titulo, c.url, c.precio, c.moneda, c.ubicacion, c.ambientes,
            coalesce(c.superficie_cubierta, c.superficie_total) AS superficie,
-           c.cocheras, c.antiguedad
+           c.cocheras, c.antiguedad,
+           v.id_publicacion IS NOT NULL AS vias_medidas,
+           v.autopista_m, v.autopista, v.avenida_m, v.avenida
     FROM silver.avisos a
     JOIN gold.candidatas c USING (id_busqueda, fuente, id_publicacion)
+    LEFT JOIN silver.cercania_vias v USING (fuente, id_publicacion)
     WHERE a.enviado_en IS NULL
     ORDER BY a.visto_en, a.fuente, a.id_publicacion
 """
@@ -81,6 +85,11 @@ class PendingRow(TypedDict):
     superficie: Number
     cocheras: Number
     antiguedad: Number
+    vias_medidas: bool
+    autopista_m: int | None
+    autopista: str | None
+    avenida_m: int | None
+    avenida: str | None
 
 
 def _number(value: Number) -> float | None:
@@ -89,6 +98,10 @@ def _number(value: Number) -> float | None:
 
 def _whole(value: Number) -> int | None:
     return None if value is None else int(value)
+
+
+def _nearest(distance_m: int | None, name: str | None) -> Nearest | None:
+    return None if distance_m is None else Nearest(distance_m=distance_m, name=name)
 
 
 def _listing(row: PendingRow, search: Search) -> NewListing:
@@ -104,6 +117,9 @@ def _listing(row: PendingRow, search: Search) -> NewListing:
         area_m2=_number(row["superficie"]),
         garage=_whole(row["cocheras"]),
         age_years=_whole(row["antiguedad"]),
+        roads_measured=row["vias_medidas"],
+        motorway=_nearest(row["autopista_m"], row["autopista"]),
+        avenue=_nearest(row["avenida_m"], row["avenida"]),
     )
 
 

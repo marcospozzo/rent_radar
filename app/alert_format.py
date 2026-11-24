@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.roads import Nearest
 from app.searches import Operation
 
 _PORTAL_NAMES = {
@@ -15,6 +16,11 @@ _PORTAL_NAMES = {
 # First thing in every subject, so rent and sale tell apart in the inbox at a glance.
 _OPERATION_TAGS = {Operation.RENT: "[ALQUILER]", Operation.SALE: "[VENTA]"}
 _MAX_TITLE_LENGTH = 70
+# Closer than this the email warns. First guesses, to tune against
+# silver.cercania_vias: a motorway is heard from a few blocks away, while an
+# avenue matters when the listing faces it, not when it is on the next block.
+MOTORWAY_WARNING_M = 300
+AVENUE_WARNING_M = 60
 
 
 @dataclass(frozen=True)
@@ -30,6 +36,9 @@ class NewListing:
     area_m2: float | None
     garage: int | None
     age_years: int | None
+    roads_measured: bool
+    motorway: Nearest | None
+    avenue: Nearest | None
 
 
 def _escape(text: str) -> str:
@@ -68,6 +77,23 @@ def format_details(listing: NewListing) -> str:
     return " · ".join(parts)
 
 
+def _road_warning(label: str, nearest: Nearest | None, threshold_m: int) -> str | None:
+    if nearest is None or nearest.distance_m > threshold_m:
+        return None
+    name = f" ({_escape(nearest.name)})" if nearest.name else ""
+    return f"⚠ {label} a ~{nearest.distance_m} m{name}"
+
+
+def format_road_warnings(listing: NewListing) -> list[str]:
+    if not listing.roads_measured:
+        return ["No se pudo medir la distancia a autopistas y avenidas (el aviso no trae ubicación)"]
+    warnings = [
+        _road_warning("Autopista", listing.motorway, MOTORWAY_WARNING_M),
+        _road_warning("Avenida", listing.avenue, AVENUE_WARNING_M),
+    ]
+    return [warning for warning in warnings if warning]
+
+
 def _block(listing: NewListing) -> str:
     per_month = "/mes" if listing.operation is Operation.RENT else ""
     price_parts = [f"{format_price(listing.price, listing.currency)}{per_month}"]
@@ -84,6 +110,7 @@ def _block(listing: NewListing) -> str:
     details = format_details(listing)
     if details:
         lines.append(details)
+    lines.extend(format_road_warnings(listing))
     lines.append(f"[Ver publicación]({listing.url})")
     # Two trailing spaces are Markdown's line break.
     return "  \n".join(lines)

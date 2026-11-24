@@ -7,7 +7,7 @@ Gran Buenos Aires. It has no UI of its own: everything is configured in `config/
 ## How it works
 
 ```
-spiders -> raw.snapshots -> dbt -> gold.candidatas -> send_alerts -> email (Apprise)
+spiders -> raw.snapshots -> dbt -> gold.candidatas -> measure_roads -> send_alerts -> email (Apprise)
 ```
 
 1. Every cycle the spiders scrape the searches in `config/alerts.yaml`. The URLs
@@ -19,10 +19,13 @@ spiders -> raw.snapshots -> dbt -> gold.candidatas -> send_alerts -> email (Appr
    new alert does not email everything that already exists. That silence lasts
    until a run of the alert on that portal has read everything it matches, which
    takes several cycles on ArgenProp (see Known limitations).
-4. New listings are emailed through Apprise, one email per cycle (`digest`) or
+4. Each candidate listing with coordinates is measured once against the
+   motorways and avenues in `data/roads.json.gz` (see Roads below), and its
+   email warns when it is close to one.
+5. New listings are emailed through Apprise, one email per cycle (`digest`) or
    one per listing (`each`). A message is marked as sent only once Apprise
    accepted it; a failed one is retried on the next cycle.
-5. If a portal stops returning data (blocked, down) you get one email about it,
+6. If a portal stops returning data (blocked, down) you get one email about it,
    and another when it recovers.
 
 ## Run it
@@ -49,7 +52,8 @@ Everything is bound to loopback. Three flows run on their own schedule
 (`prefect.yaml`):
 
 - `rent-radar`, every 10 minutes: sync `config/alerts.yaml`, scrape ZonaProp,
-  ArgenProp and Más Hogares BNA, run dbt, send the alerts, check the portals' health.
+  ArgenProp and Más Hogares BNA, run dbt, measure the distance to roads, send
+  the alerts, check the portals' health.
 - `rent-radar-mercadolibre`, every hour: scrape MercadoLibre (slow, with
   anti-bot pauses).
 - `rent-radar-prune`, daily at 08:00 Buenos Aires: delete snapshots older than
@@ -190,6 +194,27 @@ docker compose up -d
   have coordinates, so it can arrive twice.
 - The Prefect UI has no authentication. Keep it on a trusted network.
 - `NEON_DATABASE_URL` keeps its upstream name but points at the local database.
+
+## Roads
+
+The email of a listing says when it is within 300 m of a motorway or 60 m of an
+avenue (`MOTORWAY_WARNING_M` and `AVENUE_WARNING_M` in `app/alert_format.py`).
+It only warns; nothing is filtered out. Every measured listing keeps its
+distances and the roads' names in `silver.cercania_vias` (up to 1 km; farther is
+NULL), so the thresholds can be checked against past listings, e.g.
+`SELECT * FROM silver.cercania_vias ORDER BY avenida_m`.
+
+- Roads are OpenStreetMap's `motorway` (autopista) and `trunk`, `primary` and
+  `secondary` (avenida) ways in a box around the AMBA, downloaded once into
+  `data/roads.json.gz`. Refresh it with `python3 tools/fetch_roads.py` and
+  commit the result; the pipeline never calls OpenStreetMap.
+- The distance is only as good as the portal's coordinates: a listing that hides
+  its address shows an approximate point, which can be off by a few hundred
+  metres. Más Hogares BNA gives no coordinates, so its emails say the distance
+  was not measured.
+
+Road data © OpenStreetMap contributors, available under the
+[Open Database License](https://opendatacommons.org/licenses/odbl/).
 
 ## Origins
 
