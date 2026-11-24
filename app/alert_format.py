@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 
 from app.roads import SEARCH_RADIUS_M, Nearest
-from app.searches import Operation
+from app.searches import Operation, RoadWarnings
 
 _PORTAL_NAMES = {
     "zonaprop": "ZonaProp",
@@ -16,11 +16,6 @@ _PORTAL_NAMES = {
 # First thing in every subject, so rent and sale tell apart in the inbox at a glance.
 _OPERATION_TAGS = {Operation.RENT: "[ALQUILER]", Operation.SALE: "[VENTA]"}
 _MAX_TITLE_LENGTH = 70
-# Closer than this the email warns. First guesses, to tune against
-# silver.cercania_vias: a motorway is heard from a few blocks away, while an
-# avenue matters when the listing faces it, not when it is on the next block.
-MOTORWAY_WARNING_M = 300
-AVENUE_WARNING_M = 60
 
 
 @dataclass(frozen=True)
@@ -39,6 +34,8 @@ class NewListing:
     roads_measured: bool
     motorway: Nearest | None
     avenue: Nearest | None
+    # The thresholds of the alert the listing is emailed for.
+    road_warnings: RoadWarnings
 
 
 def _escape(text: str) -> str:
@@ -93,8 +90,8 @@ def format_road_lines(listing: NewListing) -> list[str]:
     warnings: list[str] = []
     distances: list[str] = []
     for label, nearest, threshold_m in (
-        ("Autopista", listing.motorway, MOTORWAY_WARNING_M),
-        ("Avenida", listing.avenue, AVENUE_WARNING_M),
+        ("Autopista", listing.motorway, listing.road_warnings.motorway_m),
+        ("Avenida", listing.avenue, listing.road_warnings.avenue_m),
     ):
         text = _road_distance(label, nearest)
         if nearest is not None and nearest.distance_m <= threshold_m:

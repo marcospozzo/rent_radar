@@ -120,6 +120,7 @@ def _listing(row: PendingRow, search: Search) -> NewListing:
         roads_measured=row["vias_medidas"],
         motorway=_nearest(row["autopista_m"], row["autopista"]),
         avenue=_nearest(row["avenida_m"], row["avenida"]),
+        road_warnings=search.road_warnings,
     )
 
 

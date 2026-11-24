@@ -10,6 +10,8 @@ from typing import Literal, get_args
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
+from app.roads import SEARCH_RADIUS_M
+
 # Relative to the working directory, which is /app for every job in the image.
 ALERTS_FILE = Path(os.environ.get("ALERTS_FILE", "config/alerts.yaml"))
 NEIGHBORHOODS_FILE = Path(os.environ.get("NEIGHBORHOODS_FILE", "config/neighborhoods.yaml"))
@@ -66,6 +68,18 @@ class Price(_Strict):
         return self
 
 
+class RoadWarnings(_Strict):
+    """Closer than this, in metres, the email marks the listing with ⚠. It only
+    warns; nothing is filtered out. The defaults are first guesses, to tune against
+    silver.cercania_vias: a motorway is heard from a few blocks away, while an
+    avenue matters when the listing faces it, not when it is on the next block.
+    Farther than SEARCH_RADIUS_M no distance is stored, so a larger threshold could
+    never match."""
+
+    motorway_m: int = Field(default=300, gt=0, le=SEARCH_RADIUS_M)
+    avenue_m: int = Field(default=60, gt=0, le=SEARCH_RADIUS_M)
+
+
 class Search(_Strict):
     """One alert from alerts.yaml: one operation looked up on the portals, which is
     what the pipeline actually runs."""
@@ -81,6 +95,7 @@ class Search(_Strict):
     min_garage: int = Field(default=0, ge=0)
     min_area_m2: int | None = Field(default=None, gt=0)
     price: Price
+    road_warnings: RoadWarnings = Field(default_factory=RoadWarnings)
     # Who gets this alert's emails. Empty means the recipient of the Apprise URL, so
     # the addresses of other people live only in alerts.yaml, which git ignores.
     to: list[str] = Field(default_factory=list)

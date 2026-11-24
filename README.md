@@ -199,7 +199,8 @@ docker compose up -d
 
 The email of every measured listing shows its distance to the nearest motorway
 and avenue, and marks with ⚠ those within 300 m of a motorway or 60 m of an
-avenue (`MOTORWAY_WARNING_M` and `AVENUE_WARNING_M` in `app/alert_format.py`).
+avenue. Each alert can change both distances with `road_warnings` in
+`config/alerts.yaml` (see `alerts.example.yaml`); the next cycle uses them.
 It only warns; nothing is filtered out. Every measured listing keeps its
 distances and the roads' names in `silver.cercania_vias` (up to 1 km; farther is
 NULL), so the thresholds can be checked against past listings, e.g.

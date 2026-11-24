@@ -54,6 +54,12 @@ alerts:
     # price.min and price.max are both optional, alone or together. The minimum
     # compares the listing's price alone; the maximum adds the expensas.
     price: { currency: ARS, min: 1000000, max: 2000000 }    # currency: ARS | USD
+    # road_warnings (optional): every email shows how far a listing is from the
+    # nearest motorway and avenue, and marks with ⚠ those closer than these
+    # distances, in metres. Either key can be left out. Defaults: 300 and 60; at
+    # most 1000, the farthest distance measured. It only warns: nothing is
+    # filtered out.
+    road_warnings: { motorway_m: 300, avenue_m: 60 }
 
   # The smallest alert: only the required keys.
   - id: norte-venta
