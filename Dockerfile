@@ -57,5 +57,6 @@ COPY --chown=app:app main.py prefect.yaml ./
 COPY --chown=app:app jobs ./jobs
 COPY --chown=app:app analytics ./analytics
 COPY --chown=app:app sql ./sql
+COPY --chown=app:app data ./data
 
 CMD ["python", "main.py"]

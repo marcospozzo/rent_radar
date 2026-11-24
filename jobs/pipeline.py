@@ -83,6 +83,11 @@ def task_dbt() -> None:
     _run("run_dbt.py")
 
 
+@task(name="measure-roads")
+def task_measure_roads() -> None:
+    _run("measure_roads.py")
+
+
 @task(name="send-alerts")
 def task_send_alerts() -> None:
     _run("send_alerts.py")
@@ -128,6 +133,9 @@ def pipeline() -> None:
         if isinstance(error, Exception):
             print(f"Ingest falló, se sigue con el resto del pipeline igual: {error}")
     _try_step("dbt", task_dbt)
+    # Before send_alerts, so a new listing's email carries its distances. A failure
+    # here only leaves them out of the email; the listing is still sent.
+    _try_step("measure_roads", task_measure_roads)
     _try_step("send_alerts", task_send_alerts)
     task_check_health()
 
