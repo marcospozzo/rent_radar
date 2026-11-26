@@ -173,12 +173,15 @@ docker compose up -d
   A price in pesos does not have this problem.
 - **MercadoLibre** covers one property type in one place per URL, so an alert is
   one URL for each type and neighborhood, and a run takes a long time: it opens
-  every listing in a browser with pauses between them. Its URLs were written from
-  examples copied out of its page and have not run against the live portal; a
-  maximum number of rooms and a minimum price without a maximum are left to dbt,
-  because no URL form for them was checked. A wrong URL searches somewhere else
-  and the results page is not checked against the neighborhoods, as ZonaProp's
-  and ArgenProp's are.
+  the listings it has not seen before in a browser, with pauses between them.
+  Its URLs were written from examples copied out of its page; on the live portal
+  both the GBA and the CABA ones return listings. A CABA search with nothing to
+  show answers HTTP 404 (one answered 400) instead of an empty page, and the
+  spider reads it as no results.
+  A maximum number of rooms and a minimum price without a maximum are left to
+  dbt, because no URL form for them was checked. A wrong URL searches somewhere
+  else and the results page is not checked against the neighborhoods, as
+  ZonaProp's and ArgenProp's are.
 - **Más Hogares BNA** (`mashogares`) is read from the JSON API its pages use, not
   from HTML, and only for sale alerts. It cannot filter by several property types
   or room counts at once, so an alert makes one request per type and dbt applies

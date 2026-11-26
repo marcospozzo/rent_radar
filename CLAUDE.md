@@ -97,23 +97,22 @@ work calls for it.
   and the next cycle uses it with no pull, image or restart.
 - Done: Docker; searches defined in YAML, one operation (rent or sale) per alert; email alerts
   through Apprise (replacing Telegram and the map dashboard); deployed on the
-  homelab, where the ZonaProp alerts are running.
-- Known state of the portals on the server: ZonaProp rent and sale work;
-  ArgenProp now asks for the detail of new listings only, capped at 15 requests
-  per run (written and tested against a fake portal, not yet watched on the
-  server: check that its searches finish reading and that the cap is right);
-  MercadoLibre reads prices on the server now (45 of 45 in the first runs) and its
-  generated URLs work for GBA; the CABA ones (Saavedra, Coghlan) answer HTTP 404
-  yet render their results (the spider now reads them; Coghlan casas answered 400). It asks for the detail of new listings only (written
-  and tested against fake card markup, not yet watched on the server: check that
-  the second run is fast and that prices still update from the results cards).
-  Más Hogares BNA (`mashogares`, sale only) reads a JSON API with no browser; tested
-  live from the Mac end to end against the local database and Mailpit, not yet
-  watched on the server.
+  homelab, where the ZonaProp alerts are running; the distance to the nearest
+  motorway and avenue in every alert email (OpenStreetMap roads in
+  `data/roads.json.gz`, ⚠ thresholds per alert in `road_warnings`; it only
+  warns, nothing is filtered out).
+- Known state of the portals on the server (logs of 2026-11-25): ZonaProp rent
+  and sale work. ArgenProp asks for the detail of new listings only, capped at 15
+  requests per run, yet every run read 0 listings in about 3 s on all four
+  searches: blocked or broken, still to look at. MercadoLibre works for GBA and
+  CABA (Villa Santa Rita and Saavedra yield listings; an empty CABA search
+  answers HTTP 404, Coghlan casas once 400) and reuses known listings: every
+  search showed `ya conocidas` equal to `publicaciones`. Más Hogares BNA
+  (`mashogares`, sale only) reads a JSON API with no browser; its requests read 0
+  listings in about 20 s each until 13:11, then 39 to 67 in about 2 s.
 - Next, in order, one at a time:
-  1. Watch ArgenProp on the server and tune `max_requests` if the WAF still cuts
-     it off.
-  2. MercadoLibre: confirm the CABA URLs now yield listings, and confirm on the server that known listings are reused.
+  1. ArgenProp: find out why every run reads 0 listings, then tune
+     `max_requests` if the WAF still cuts it off.
 
 ## Git
 
