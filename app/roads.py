@@ -1,4 +1,4 @@
-"""Distance from a point to the nearest motorway and avenue. Pure, no I/O but the file read.
+"""Distance from a point to the nearest motorway, avenue and main street. Pure, no I/O but the file read.
 
 The roads come from data/roads.json.gz (see tools/fetch_roads.py). Distances are
 measured on a flat projection centred on Buenos Aires: across the AMBA its error
@@ -15,6 +15,8 @@ from pathlib import Path
 
 MOTORWAY = "autopista"
 AVENUE = "avenida"
+MAIN_STREET = "calle_principal"
+KINDS = (MOTORWAY, AVENUE, MAIN_STREET)
 
 # Farther than this the answer is just "far": nobody minds a motorway 2 km away,
 # and capping the search keeps it to a few grid cells.
@@ -91,7 +93,7 @@ class _KindIndex:
 class RoadIndex:
     def __init__(self, roads: list[dict], bbox: list[float]) -> None:
         self._bbox = bbox
-        self._kinds: dict[str, _KindIndex] = {MOTORWAY: _KindIndex(), AVENUE: _KindIndex()}
+        self._kinds: dict[str, _KindIndex] = {kind: _KindIndex() for kind in KINDS}
         for road in roads:
             points = [_project(latitude, longitude) for latitude, longitude in road["points"]]
             index = self._kinds[road["kind"]]

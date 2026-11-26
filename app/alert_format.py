@@ -34,6 +34,7 @@ class NewListing:
     roads_measured: bool
     motorway: Nearest | None
     avenue: Nearest | None
+    main_street: Nearest | None
     # The thresholds of the alert the listing is emailed for.
     road_warnings: RoadWarnings
 
@@ -86,12 +87,13 @@ def format_road_lines(listing: NewListing) -> list[str]:
     distance to the rest. Distances far from any road are shown too, so every email
     tells a listing that is far from roads apart from one that was not measured."""
     if not listing.roads_measured:
-        return ["No se pudo medir la distancia a autopistas y avenidas (el aviso no trae ubicación)"]
+        return ["No se pudo medir la distancia a autopistas, avenidas y calles principales (el aviso no trae ubicación)"]
     warnings: list[str] = []
     distances: list[str] = []
     for label, nearest, threshold_m in (
         ("Autopista", listing.motorway, listing.road_warnings.motorway_m),
         ("Avenida", listing.avenue, listing.road_warnings.avenue_m),
+        ("Calle principal", listing.main_street, listing.road_warnings.main_street_m),
     ):
         text = _road_distance(label, nearest)
         if nearest is not None and nearest.distance_m <= threshold_m:

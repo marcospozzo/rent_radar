@@ -55,7 +55,8 @@ FETCH_PENDING = """
            coalesce(c.superficie_cubierta, c.superficie_total) AS superficie,
            c.cocheras, c.antiguedad,
            v.id_publicacion IS NOT NULL AS vias_medidas,
-           v.autopista_m, v.autopista, v.avenida_m, v.avenida
+           v.autopista_m, v.autopista, v.avenida_m, v.avenida,
+           v.calle_principal_m, v.calle_principal
     FROM silver.avisos a
     JOIN gold.candidatas c USING (id_busqueda, fuente, id_publicacion)
     LEFT JOIN silver.cercania_vias v USING (fuente, id_publicacion)
@@ -90,6 +91,8 @@ class PendingRow(TypedDict):
     autopista: str | None
     avenida_m: int | None
     avenida: str | None
+    calle_principal_m: int | None
+    calle_principal: str | None
 
 
 def _number(value: Number) -> float | None:
@@ -120,6 +123,7 @@ def _listing(row: PendingRow, search: Search) -> NewListing:
         roads_measured=row["vias_medidas"],
         motorway=_nearest(row["autopista_m"], row["autopista"]),
         avenue=_nearest(row["avenida_m"], row["avenida"]),
+        main_street=_nearest(row["calle_principal_m"], row["calle_principal"]),
         road_warnings=search.road_warnings,
     )
 

@@ -36,18 +36,22 @@ SOUTH, WEST, NORTH, EAST = -35.05, -58.95, -34.35, -58.15
 
 # The box is asked in tiles: in one piece the query outlives Overpass's gateway
 # (HTTP 502). A way crossing tiles comes back from each, whole, and is kept once.
-TILES = 3
+# Five per side since tertiary roads joined: with them a 3x3 tile timed out too.
+TILES = 5
 RETRIES = 6
 
 # OSM classes, not the "Avenida" in a name: in GBA plenty of quiet streets are
 # called avenida, and Avenida General Paz is a motorway. Trunk roads here are
-# arterials such as Ruta 3 or 9 de Julio, so they count as avenues. Motorway
-# ramps (motorway_link) are left out.
+# arterials such as Ruta 3 or 9 de Julio, so they count as avenues. Tertiary
+# roads are a kind of their own: they hold second-order avenues such as Larralde,
+# but also plain busy streets, so they get their own line and threshold in the
+# email. Motorway ramps (motorway_link) are left out.
 KINDS = {
     "motorway": "autopista",
     "trunk": "avenida",
     "primary": "avenida",
     "secondary": "avenida",
+    "tertiary": "calle_principal",
 }
 
 # Five decimals is about one metre, far finer than the listings' coordinates.

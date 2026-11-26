@@ -98,7 +98,7 @@ work calls for it.
 - Done: Docker; searches defined in YAML, one operation (rent or sale) per alert; email alerts
   through Apprise (replacing Telegram and the map dashboard); deployed on the
   homelab, where the ZonaProp alerts are running; the distance to the nearest
-  motorway and avenue in every alert email (OpenStreetMap roads in
+  motorway, avenue and main street in every alert email (OpenStreetMap roads in
   `data/roads.json.gz`, ⚠ thresholds per alert in `road_warnings`; it only
   warns, nothing is filtered out).
 - Known state of the portals on the server (logs of 2026-11-25): ZonaProp rent

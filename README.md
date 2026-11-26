@@ -20,8 +20,8 @@ spiders -> raw.snapshots -> dbt -> gold.candidatas -> measure_roads -> send_aler
    until a run of the alert on that portal has read everything it matches, which
    takes several cycles on ArgenProp (see Known limitations).
 4. Each candidate listing with coordinates is measured once against the
-   motorways and avenues in `data/roads.json.gz` (see Roads below), and its
-   email warns when it is close to one.
+   motorways, avenues and main streets in `data/roads.json.gz` (see Roads
+   below), and its email warns when it is close to one.
 5. New listings are emailed through Apprise, one email per cycle (`digest`) or
    one per listing (`each`). A message is marked as sent only once Apprise
    accepted it; a failed one is retried on the next cycle.
@@ -200,19 +200,22 @@ docker compose up -d
 
 ## Roads
 
-The email of every measured listing shows its distance to the nearest motorway
-and avenue, and marks with ⚠ those within 300 m of a motorway or 60 m of an
-avenue. Each alert can change both distances with `road_warnings` in
-`config/alerts.yaml` (see `alerts.example.yaml`); the next cycle uses them.
-It only warns; nothing is filtered out. Every measured listing keeps its
-distances and the roads' names in `silver.cercania_vias` (up to 1 km; farther is
-NULL), so the thresholds can be checked against past listings, e.g.
+The email of every measured listing shows its distance to the nearest motorway,
+avenue and main street, and marks with ⚠ those within 300 m of a motorway, 60 m
+of an avenue or 30 m of a main street. Each alert can change these distances
+with `road_warnings` in `config/alerts.yaml` (see `alerts.example.yaml`); the
+next cycle uses them. It only warns; nothing is filtered out. Every measured
+listing keeps its distances and the roads' names in `silver.cercania_vias` (up
+to 1 km; farther is NULL), so the thresholds can be checked against past
+listings, e.g.
 `SELECT * FROM silver.cercania_vias ORDER BY avenida_m`.
 
-- Roads are OpenStreetMap's `motorway` (autopista) and `trunk`, `primary` and
-  `secondary` (avenida) ways in a box around the AMBA, downloaded once into
-  `data/roads.json.gz`. Refresh it with `python3 tools/fetch_roads.py` and
-  commit the result; the pipeline never calls OpenStreetMap.
+- Roads are OpenStreetMap's `motorway` (autopista), `trunk`, `primary` and
+  `secondary` (avenida) and `tertiary` (calle principal) ways in a box around
+  the AMBA, downloaded once into `data/roads.json.gz`. Refresh it with
+  `python3 tools/fetch_roads.py` and commit the result; the pipeline never calls
+  OpenStreetMap. A main street is a kind of its own because OSM's `tertiary`
+  holds second-order avenues such as Larralde, but also plain busy streets.
 - The distance is only as good as the portal's coordinates: a listing that hides
   its address shows an approximate point, which can be off by a few hundred
   metres. Más Hogares BNA gives no coordinates, so its emails say the distance

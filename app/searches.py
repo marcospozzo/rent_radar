@@ -72,12 +72,14 @@ class RoadWarnings(_Strict):
     """Closer than this, in metres, the email marks the listing with ⚠. It only
     warns; nothing is filtered out. The defaults are first guesses, to tune against
     silver.cercania_vias: a motorway is heard from a few blocks away, while an
-    avenue matters when the listing faces it, not when it is on the next block.
-    Farther than SEARCH_RADIUS_M no distance is stored, so a larger threshold could
-    never match."""
+    avenue matters when the listing faces it, not when it is on the next block, and
+    a main street (busier than most, quieter than an avenue) only when the listing
+    is on it. Farther than SEARCH_RADIUS_M no distance is stored, so a larger
+    threshold could never match."""
 
     motorway_m: int = Field(default=300, gt=0, le=SEARCH_RADIUS_M)
     avenue_m: int = Field(default=60, gt=0, le=SEARCH_RADIUS_M)
+    main_street_m: int = Field(default=30, gt=0, le=SEARCH_RADIUS_M)
 
 
 class Search(_Strict):
