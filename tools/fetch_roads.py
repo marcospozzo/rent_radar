@@ -20,9 +20,11 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Public Overpass instances, tried in turn: the main one is often at capacity for
-# hours (HTTP 502), and any of them serves the same OpenStreetMap data.
+# Public Overpass instances, tried in turn: any of them can be at capacity for
+# hours (HTTP 502, 504 or no answer), and all serve the same OpenStreetMap data.
+# On 2026-11-26 the main one had answered 502 for a day while mail.ru's worked.
 OVERPASS_URLS = [
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass-api.de/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
 ]
