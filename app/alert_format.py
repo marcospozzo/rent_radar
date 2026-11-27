@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from html import escape
+from urllib.parse import quote
 
 from app.roads import SEARCH_RADIUS_M, Nearest
 from app.searches import Operation, RoadWarnings
@@ -25,6 +26,12 @@ _FONT = "font-family:Arial,Helvetica,sans-serif"
 _TEXT = "#1d2433"
 _MUTED = "#5b6475"
 
+# Wide enough to fill the card at the email's 600 px; zoom 15 shows the blocks
+# around the listing and the avenues near it.
+_MAP_WIDTH_PX = 600
+_MAP_HEIGHT_PX = 280
+_MAP_ZOOM = 15
+
 
 @dataclass(frozen=True)
 class NewListing:
@@ -35,6 +42,8 @@ class NewListing:
     price: float | None
     currency: str | None
     location: str | None
+    latitude: float | None
+    longitude: float | None
     rooms: int | None
     area_m2: float | None
     garage: int | None
@@ -53,6 +62,16 @@ class RoadLines:
     warnings: list[str]
     # The distance to the other roads, or why nothing was measured.
     summary: str | None
+
+
+def map_image_url(latitude: float, longitude: float, api_key: str) -> str:
+    """A Geoapify static map centred on the listing, with a pin on it."""
+    point = f"lonlat:{longitude:.6f},{latitude:.6f}"
+    return (
+        "https://maps.geoapify.com/v1/staticmap?style=osm-bright"
+        f"&width={_MAP_WIDTH_PX}&height={_MAP_HEIGHT_PX}&center={point}&zoom={_MAP_ZOOM}"
+        f"&marker={point};color:%23d62828;size:medium&apiKey={quote(api_key, safe='')}"
+    )
 
 
 def _short_title(title: str) -> str:
@@ -156,10 +175,30 @@ def _roads_html(listing: NewListing) -> str:
     return "".join(parts)
 
 
-def _card(listing: NewListing) -> str:
+def _map_html(latitude: float, longitude: float, api_key: str) -> str:
+    image = escape(map_image_url(latitude, longitude, api_key))
+    osm = escape(
+        f"https://www.openstreetmap.org/?mlat={latitude:.6f}&mlon={longitude:.6f}"
+        f"#map=17/{latitude:.6f}/{longitude:.6f}"
+    )
+    # The image carries the attribution Geoapify's free plan requires, so the
+    # email adds none.
+    return (
+        f'<a href="{osm}" style="display:block;margin:0 0 14px">'
+        f'<img src="{image}" width="{_MAP_WIDTH_PX}" alt="Mapa de la ubicación" '
+        'style="display:block;width:100%;height:auto;border:0;border-radius:6px"></a>'
+    )
+
+
+def _card(listing: NewListing, map_api_key: str | None) -> str:
     url = escape(listing.url)
     portal = escape(_PORTAL_NAMES.get(listing.source, listing.source))
-    body = [
+    body = []
+    # Without coordinates there is no map; the road line already says the listing
+    # has no location.
+    if map_api_key and listing.latitude is not None and listing.longitude is not None:
+        body.append(_map_html(listing.latitude, listing.longitude, map_api_key))
+    body += [
         _paragraph(portal.upper(), f"font-size:11px;letter-spacing:1px;color:{_MUTED}"),
         _paragraph(
             f'<a href="{url}" style="color:{_TEXT};text-decoration:none">'
@@ -188,8 +227,8 @@ def _card(listing: NewListing) -> str:
     )
 
 
-def _page(listings: list[NewListing]) -> str:
-    cards = "".join(_card(listing) for listing in listings)
+def _page(listings: list[NewListing], map_api_key: str | None) -> str:
+    cards = "".join(_card(listing, map_api_key) for listing in listings)
     return (
         f'<div style="margin:0;padding:16px 8px;background:#f2f4f7">'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
@@ -197,14 +236,18 @@ def _page(listings: list[NewListing]) -> str:
     )
 
 
-def single_message(alert_id: str, listing: NewListing) -> tuple[str, str]:
+def single_message(alert_id: str, listing: NewListing, map_api_key: str | None) -> tuple[str, str]:
+    """No map in the body when `map_api_key` is None."""
     tag = _OPERATION_TAGS[listing.operation]
-    return f"{tag} {alert_id}: {_short_title(listing.title)}", _page([listing])
+    return f"{tag} {alert_id}: {_short_title(listing.title)}", _page([listing], map_api_key)
 
 
-def digest_message(alert_id: str, operation: Operation, listings: list[NewListing]) -> tuple[str, str]:
-    """One email for the new listings of one operation, which the subject states."""
+def digest_message(
+    alert_id: str, operation: Operation, listings: list[NewListing], map_api_key: str | None
+) -> tuple[str, str]:
+    """One email for the new listings of one operation, which the subject states.
+    No maps in the body when `map_api_key` is None."""
     count = len(listings)
     noun = "publicación nueva" if count == 1 else "publicaciones nuevas"
     title = f"{_OPERATION_TAGS[operation]} {alert_id}: {count} {noun}"
-    return title, _page(listings)
+    return title, _page(listings, map_api_key)

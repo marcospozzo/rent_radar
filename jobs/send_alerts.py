@@ -52,7 +52,7 @@ END_BASELINES = """
 
 FETCH_PENDING = """
     SELECT a.id_busqueda, a.fuente, a.id_publicacion,
-           c.titulo, c.url, c.precio, c.moneda, c.ubicacion, c.ambientes,
+           c.titulo, c.url, c.precio, c.moneda, c.ubicacion, c.latitud, c.longitud, c.ambientes,
            coalesce(c.superficie_cubierta, c.superficie_total) AS superficie,
            c.cocheras, c.antiguedad,
            v.id_publicacion IS NOT NULL AS vias_medidas,
@@ -83,6 +83,8 @@ class PendingRow(TypedDict):
     precio: Number
     moneda: str | None
     ubicacion: str | None
+    latitud: Number
+    longitud: Number
     ambientes: Number
     superficie: Number
     cocheras: Number
@@ -117,6 +119,8 @@ def _listing(row: PendingRow, search: Search) -> NewListing:
         price=_number(row["precio"]),
         currency=row["moneda"],
         location=row["ubicacion"],
+        latitude=_number(row["latitud"]),
+        longitude=_number(row["longitud"]),
         rooms=_whole(row["ambientes"]),
         area_m2=_number(row["superficie"]),
         garage=_whole(row["cocheras"]),
@@ -141,6 +145,10 @@ def main() -> None:
     except SearchConfigError as exc:
         sys.exit(f"Invalid alert configuration: {exc}")
     searches = {search.id: search for search in config.searches}
+    # Optional: without a key the emails go out without maps rather than not at all.
+    map_api_key = os.environ.get("GEOAPIFY_API_KEY") or None
+    if map_api_key is None:
+        print("GEOAPIFY_API_KEY is not set in .env: emails go out without maps")
 
     conn = psycopg2.connect(os.environ["NEON_DATABASE_URL"])
     try:
@@ -168,9 +176,9 @@ def main() -> None:
             for batch in batches:
                 listings = [listing for _, listing in batch]
                 title, body = (
-                    digest_message(search.id, search.operation, listings)
+                    digest_message(search.id, search.operation, listings, map_api_key)
                     if search.delivery is Delivery.DIGEST
-                    else single_message(search.id, listings[0])
+                    else single_message(search.id, listings[0], map_api_key)
                 )
                 if send(notifiers[tuple(search.to)], title, body, apprise.NotifyFormat.HTML):
                     with conn, conn.cursor() as cur:

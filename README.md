@@ -95,7 +95,12 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
   their URLs. Add an entry only after checking the slug on the live portal; a
   wrong one makes a portal silently search somewhere else.
 - **`.env`**: the database credentials and, on a server, the image to run and
-  the address to listen on.
+  the address to listen on. Optionally `GEOAPIFY_API_KEY`, for the map of each
+  listing in the alert emails: create a free account at geoapify.com and copy
+  the project's API key. Without it the emails carry no map. The key travels in
+  the image URL of every email, so whoever receives one can read it: in
+  Geoapify's dashboard, restrict the key to the Static Maps API. The free plan
+  allows 3000 maps a day.
 
 ## Development
 

@@ -14,6 +14,8 @@ x-app: &app
     DBT_PASSWORD: ${POSTGRES_PASSWORD}
     DBT_DBNAME: ${POSTGRES_DB}
     DBT_SSLMODE: disable
+    # Optional: without it the alert emails carry no map.
+    GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY:-}
   # Chromium crashes with the default 64 MB /dev/shm.
   shm_size: 1gb
 
