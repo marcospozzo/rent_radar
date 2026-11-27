@@ -56,6 +56,6 @@ def build_notifier(services: list[AppriseService], recipients: list[str] | None 
     return notifier
 
 
-def send(notifier: apprise.Apprise, title: str, body: str) -> bool:
+def send(notifier: apprise.Apprise, title: str, body: str, body_format: apprise.NotifyFormat) -> bool:
     """True only if every service accepted the message."""
-    return bool(notifier.notify(title=title, body=body, body_format=apprise.NotifyFormat.MARKDOWN))
+    return bool(notifier.notify(title=title, body=body, body_format=body_format))

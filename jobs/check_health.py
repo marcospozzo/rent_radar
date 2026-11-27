@@ -20,6 +20,7 @@ import os
 import sys
 from pathlib import Path
 
+import apprise
 import psycopg2
 import psycopg2.extras
 
@@ -53,7 +54,7 @@ def _send(config: Config, title: str, body: str) -> bool:
     except SearchConfigError as exc:
         print(f"  no se pudo armar el envío por email: {exc}")
         return False
-    return send(notifier, title, body)
+    return send(notifier, title, body, apprise.NotifyFormat.MARKDOWN)
 
 
 def _alert_db_unreachable(config: Config, exc: Exception) -> None:

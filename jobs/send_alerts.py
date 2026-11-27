@@ -12,6 +12,7 @@ import sys
 from decimal import Decimal
 from typing import TypedDict, cast
 
+import apprise
 import psycopg2
 import psycopg2.extras
 
@@ -171,7 +172,7 @@ def main() -> None:
                     if search.delivery is Delivery.DIGEST
                     else single_message(search.id, listings[0])
                 )
-                if send(notifiers[tuple(search.to)], title, body):
+                if send(notifiers[tuple(search.to)], title, body, apprise.NotifyFormat.HTML):
                     with conn, conn.cursor() as cur:
                         cur.execute(MARK_SENT, (tuple(key for key, _ in batch),))
                     emails += 1
