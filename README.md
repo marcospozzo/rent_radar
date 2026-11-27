@@ -118,7 +118,7 @@ cycle re-reads it, so an edit, or a `git pull` that changes it, needs no restart
 ## Deploy on a server
 
 The image is built for `linux/amd64` and published to GitHub Container Registry
-by `.github/workflows/docker.yml` on every push to master, tagged with the short
+by `.github/workflows/docker.yml` on every push to main, tagged with the short
 commit SHA and `latest`. The server only needs Docker Engine with Compose; it
 pulls the image and reads `config/` from a clone of this repository.
 

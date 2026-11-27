@@ -1,11 +1,11 @@
 name: Docker image
 
-# Builds the image on every push to master and publishes it to GitHub Container
+# Builds the image on every push to main and publishes it to GitHub Container
 # Registry, so the server only has to `docker compose pull`. It can also be run by
 # hand from the Actions tab.
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 # A newer push makes the build in progress for the same ref obsolete.

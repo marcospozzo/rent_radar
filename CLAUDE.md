@@ -82,10 +82,10 @@ work calls for it.
 
 ## Workflow
 
-- Commit directly to `master` (single developer, no upstream to mirror), one
+- Commit directly to `main` (single developer, no upstream to mirror), one
   commit per concern.
 - The Mac keeps no running stack and no local database: code is written here and
-  tested on the homelab. Commit, `git push origin master`, wait for the image
+  tested on the homelab. Commit, `git push origin main`, wait for the image
   workflow (`gh run list --limit 1`), then on the server:
   `ssh home-server`, `cd /opt/stacks/rent-radar`,
   `git pull && docker compose pull && docker compose up -d`. Useful there:
